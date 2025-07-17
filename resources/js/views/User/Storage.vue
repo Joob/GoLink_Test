@@ -7,7 +7,7 @@
 
             <b class="-mt-3 block text-2xl font-extrabold sm:text-3xl">
                 <!--{{ storage.data.attributes.used }}-->
-                {{ updatedStorageUsed }}
+                {{ updatedStorageUsed }} {{ $t('used') }}
             </b>
 
             <b
@@ -17,7 +17,6 @@
                 class="mt-0.5 block text-sm dark:text-gray-500 text-gray-400"
             >
                 {{ $t('total_of', {capacity: storage.data.attributes.capacity}) }}
-                {{ $t('used') }}
             </b>
 
             <ProgressLine v-if="storage.data.attributes.used !== '0B'" :data="distribution" class="mt-5" />

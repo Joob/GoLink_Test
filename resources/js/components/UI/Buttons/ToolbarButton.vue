@@ -13,6 +13,7 @@
         <edit-2-icon v-if="source === 'rename'" size="19" class="vue-feather group-hover-text-theme" />
         <printer-icon v-if="source === 'print'" size="19" class="vue-feather group-hover-text-theme" />
         <trash-2-icon v-if="source === 'trash'" size="19" class="vue-feather group-hover-text-theme" />
+        <trash-icon v-if="source === 'empty-trash'" size="19" class="vue-feather group-hover-text-theme" />
         <list-icon v-if="source === 'th-list'" size="19" class="vue-feather group-hover-text-theme" />
         <rotate-ccw-icon v-if="source === 'rotate-left'" size="19" class="vue-feather group-hover-text-theme" />
         <rotate-cw-icon v-if="source === 'rotate-right'" size="19" class="vue-feather group-hover-text-theme" />
@@ -46,6 +47,7 @@ import {
     ZoomOutIcon,
     ZoomInIcon,
     Trash2Icon,
+    TrashIcon,
     Edit2Icon,
     GridIcon,
     ListIcon,
@@ -76,6 +78,7 @@ export default {
         ZoomOutIcon,
         ZoomInIcon,
         Trash2Icon,
+        TrashIcon,
         Edit2Icon,
         ListIcon,
         RotateCcwIcon,

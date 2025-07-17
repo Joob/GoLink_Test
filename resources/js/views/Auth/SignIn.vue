@@ -183,8 +183,10 @@
                     <input
                         v-model="otpCode"
                         :placeholder="$t('page_sign_in.placeholder_otp')"
-                        type="password"
-                        ref="inputPassword"
+                        type="text"
+                        maxlength="6"
+                        pattern="[0-9]{6}"
+                        ref="inputOtpCode"
                         class="dark:placeholder:text-gray-600 focus-border-theme h-full w-full appearance-none rounded-lg border border-transparent bg-light-background px-5 py-3.5 font-bold dark:bg-2x-dark-foreground"
                         :class="{ '!border-rose-600': errors[0] }"
                     />
@@ -482,6 +484,14 @@
                 const isValid = await this.$refs.auth_otp.validate();
                 if (!isValid) return;
 
+                // Validate OTP format (6 digits)
+                if (!/^\d{6}$/.test(this.otpCode)) {
+                    this.$refs.auth_otp.setErrors({
+                        'Security Code': ['OTP code must be 6 digits']
+                    });
+                    return;
+                }
+
                 // Start loading
                 this.isLoading = true
 
@@ -502,19 +512,25 @@
                         this.$store.commit('SET_AUTHORIZED', true)
                         // Go to files page
                         this.$router.push({name: 'Files'})
-                        // Go to files page
-                        //this.proceedToAccount()
                     })
                     .catch(error => {
                         // Already authed.
                         if (error.response.status === 400) {
                             this.$router.push({name: 'Files'})
-                            //this.proceedToAccount()
                             return;
-                    }
-                        this.$refs.auth_otp.setErrors({
-                            'Security Code': [this.$t('validation_errors.invalid_otp_code')]
-                    });
+                        }
+                        
+                        // Handle validation errors
+                        if (error.response.status === 422 && error.response.data.otp_code) {
+                            this.$refs.auth_otp.setErrors({
+                                'Security Code': [error.response.data.otp_code]
+                            });
+                        } else {
+                            this.$refs.auth_otp.setErrors({
+                                'Security Code': [this.$t('validation_errors.invalid_otp_code')]
+                            });
+                        }
+                        
                         // End loading
                         this.isLoading = false
                     })
@@ -659,6 +675,11 @@
                 }
             },
             async resendOtpCode() {
+                // Prevent multiple rapid requests
+                if (this.isLoading) return;
+
+                this.isLoading = true;
+
                 // Send request to get user token
                 axios
                     .post('/api/user/send-otp-code', {}, {
@@ -667,15 +688,25 @@
                         }
                     })
                     .then(() => {
+                        this.isLoading = false;
                         events.$emit('success:open', {
                             title: this.$t('popup_success_send_otp_code.title'),
                             message: this.$t('popup_success_send_otp_code.message'),
                         })
                     })
                     .catch((error) => {
+                        this.isLoading = false;
+                        
+                        let errorMessage = this.$t('popup_failed_send_otp_code.message');
+                        
+                        // Handle rate limiting
+                        if (error.response.status === 429) {
+                            errorMessage = 'Too many requests. Please wait before requesting a new code.';
+                        }
+                        
                         events.$emit('alert:open', {
                             title: this.$t('popup_failed_send_otp_code.title'),
-                            message: this.$t('popup_failed_send_otp_code.message'),
+                            message: errorMessage,
                         })
                     })
             },

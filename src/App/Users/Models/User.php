@@ -145,7 +145,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     protected function generateOtpCode(): string
     {
-        return Str::random(6);
+        return str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
     }
 
     public function otpCodeIsExpired()
@@ -155,13 +155,9 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function sendNewOtpCode()
     {
-        // check user's timezone to shift the otp expiration
-        // and convert it to integer
-        $userTimeZone = intval($this->settings()->value('timezone'));
-
         // No matter what had been sent we will regenerate the code on each next request.
         $this->otp_code = $this->generateOtpCode();
-        $this->otp_expiration = now()->addHours($userTimeZone)->addMinutes(20);
+        $this->otp_expiration = now()->addMinutes(20);
         $this->save();
 
         $this->notify(new AuthOtpCode());
@@ -182,9 +178,7 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function verifyOtpCode($code): bool
     {
-        $userTimeZone = intval($this->settings()->value('timezone'));
-
-        return $this->otp_code === $code && $this->otp_expiration >= now()->addHours($userTimeZone);
+        return $this->otp_code === $code && $this->otp_expiration >= now();
     }
 
     public function limitations(): HasOne

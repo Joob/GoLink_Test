@@ -1,5 +1,5 @@
 <template>
-    <div class="shrink-0 grow-0">
+    <div class="shrink-0 grow-0" v-if="member && member.data">
         <img
             :style="{ width: size + 'px', height: size + 'px' }"
             v-if="member.data.attributes.avatar"
@@ -29,8 +29,8 @@
             }"
         >
             <span class="font-extrabold uppercase text-white dark:text-gray-900"
-				:class="[fontSize, {'!text-gray-900': !member.data.attributes.color}]"
-			>
+                :class="[fontSize, {'!text-gray-900': !member.data.attributes.color}]"
+            >
                 {{ letter }}
             </span>
         </div>
@@ -42,11 +42,15 @@ export default {
     props: ['isBorder', 'member', 'size'],
     computed: {
         letter() {
+            if (!this.member || !this.member.data || !this.member.data.attributes) {
+                return '?';
+            }
+            
             let string = this.member.data.attributes.name
                 ? this.member.data.attributes.name
                 : this.member.data.attributes.email
 
-            return string.substr(0, 1)
+            return string ? string.substr(0, 1) : '?'
         },
         borderRadius() {
             return this.size > 32 ? 'rounded-xl' : 'rounded-lg'
@@ -61,6 +65,10 @@ export default {
             }
         },
         avatar() {
+            if (!this.member || !this.member.data || !this.member.data.attributes.avatar) {
+                return null;
+            }
+            
             if (this.size >= 52) {
                 return this.member.data.attributes.avatar.md
             } else if (this.size > 32) {

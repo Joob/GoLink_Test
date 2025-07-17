@@ -277,7 +277,8 @@ export default {
     props: {
         itemId: {
             type: Number,
-            required: true
+            required: false, // Mude para false ou remova completamente
+            default: null
         },
         showpassword_in: {
             type: [Boolean, String],
@@ -316,10 +317,10 @@ export default {
             }
         },
         showpassword_in: {
-            handler(newVal) {
-                console.log('showpassword_in changed:', newVal);
+            //handler(newVal) {
+                //console.log('showpassword_in changed:', newVal);
                 // You can add additional logic here if needed
-            },
+            //},
             immediate: true
         },
     },
@@ -342,14 +343,18 @@ export default {
     },
     methods: {   
         async fetchShowpasswordIn() {
+            // Use o ID do item selecionado em vez da prop
+            if (!this.pickedItem) return;
+            
             try {
-                const response = await axios.post('/api/getShowPW', { itemId: this.itemId });
-                // Emit to parent to update the prop
+                const response = await axios.post('/api/getShowPW', { 
+                    itemId: this.pickedItem.data.id 
+                });
                 this.$emit('update:showpassword_in', response.data.showpassword_in);
             } catch (error) {
                 console.error('Error fetching showpassword_in:', error);
             }
-        }, 
+        },
         
         getShareOptionsData() {
             axios.post('/api/getShowPW')

@@ -2,7 +2,7 @@
     <button
         class="group inline-flex h-[42px] w-[42px] cursor-pointer items-center justify-center rounded-lg hover:bg-light-background dark:hover:bg-2x-dark-foreground"
         :title="action"
-        @click.native="handleClick"
+        @click="handleClick"
     >
         <corner-down-right-icon v-if="source === 'move'" size="19" class="vue-feather group-hover-text-theme" />
         <download-cloud-icon v-if="source === 'download'" size="19" class="vue-feather group-hover-text-theme" />

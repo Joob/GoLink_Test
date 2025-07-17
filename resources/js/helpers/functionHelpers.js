@@ -273,27 +273,16 @@ const FunctionHelpers = {
                             // Count attempts
                             attempts++
 
-                            // Show Error
-                            //if (attempts === 3)
-
                             // Break uploading process
                             if ([500, 422].includes(error.response.status)) {
                                 isNotGeneralError = false
-                                //this.$isSomethingWrong()
                             }
 
-                            // Show Error
-                            if (attempts === 1)
-                                //this.$isSomethingWrong()
+                            // Show Error and clear progress on first attempt failure
+                            if (attempts === 1) {
                                 store.commit('PROCESSING_FILE', false)
                                 store.commit('CLEAR_UPLOAD_PROGRESS')
-
-                            // Break uploading process
-                           /* if ([500, 415].includes(error.response.status))
-                                isNotGeneralError = false*/
-
-                            //store.commit('PROCESSING_FILE', false)
-                            //store.commit('CLEAR_UPLOAD_PROGRESS')
+                            }
                         })
                 } while (isNotGeneralError && attempts !== 0 && attempts !== 3)
             } while (isNotGeneralError && chunks.length !== 0)

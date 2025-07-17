@@ -1,6 +1,6 @@
 <template>
     <transition name="info-panel">
-        <div v-if="fileQueue.length > 0" class="upload-progress">
+        <div v-if="fileQueue.length > 0 || isProcessingFile" class="upload-progress">
             <div class="progress-title">
                 <!--Is processing-->
                 <span v-if="isProcessingFile" class="flex items-center justify-center">
@@ -9,18 +9,18 @@
                 </span>
 
                 <!--Multi file upload-->
-                <span v-if="!isProcessingFile && fileQueue.length > 0">
+                <span v-else-if="fileQueue.length > 0">
                     {{
                         $t('uploading.progress', {
                             current: filesInQueueUploaded,
                             total: filesInQueueTotal,
-                            progress: uploadingProgress,
+                            progress: displayProgress,
                         })
                     }}
                 </span>
             </div>
             <div class="progress-wrapper">
-                <ProgressBar :progress="uploadingProgress" />
+                <ProgressBar :progress="displayProgress" />
                 <span @click="cancelUpload" :title="$t('uploading.cancel')" class="cancel-icon">
                     <x-icon size="16" @click="cancelUpload" class="hover-text-theme"></x-icon>
                 </span>
@@ -47,9 +47,19 @@ export default {
             'filesInQueueUploaded',
             'filesInQueueTotal',
             'uploadingProgress',
+            'globalUploadProgress',
+            'currentFileProgress',
             'isProcessingFile',
             'fileQueue',
         ]),
+        displayProgress() {
+            // Use global progress for multiple files, individual progress for single file
+            if (this.filesInQueueTotal > 1) {
+                return this.globalUploadProgress;
+            } else {
+                return this.uploadingProgress;
+            }
+        }
     },
     methods: {
         cancelUpload() {

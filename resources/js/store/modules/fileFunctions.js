@@ -3,6 +3,24 @@ import router from '../../router'
 import { events } from '../../bus'
 import axios from 'axios'
 import Vue from 'vue'
+import { debounce } from 'lodash'
+
+// Throttled progress update to improve UI performance
+const updateProgressThrottled = debounce((commit, getters, progress, fileSize) => {
+    // Update individual file progress
+    commit('UPLOADING_FILE_PROGRESS', progress);
+
+    // Get current file being uploaded
+    const currentFile = getters.fileQueue[0];
+    if (currentFile) {
+        // Update global progress with weighted calculation
+        commit('UPDATE_GLOBAL_PROGRESS', {
+            uploadedSize: getters.uploadedQueueSize,
+            currentFileSize: currentFile.file.size,
+            currentFileProgress: progress
+        });
+    }
+}, 50); // Update every 50ms maximum for smooth progress
 
 const defaultState = {
     processingPopup: undefined,
@@ -11,6 +29,10 @@ const defaultState = {
     filesInQueueUploaded: 0,
     filesInQueueTotal: 0,
     uploadingProgress: 0,
+    globalUploadProgress: 0,
+    totalQueueSize: 0,
+    uploadedQueueSize: 0,
+    currentFileProgress: 0,
     fileQueue: [],
 }
 
@@ -235,19 +257,16 @@ const actions = {
                         'Content-Type': 'application/octet-stream',
                     },
                     onUploadProgress: (event) => {
-
                         const completedSize = totalUploadedSize + event.loaded;
                         const fileSizeMB = fileSize / (1024 * 1024); // Convert fileSize to megabytes
                         const completedSizeMB = completedSize / (1024 * 1024); // Convert completedSize to megabytes
                         const progress = Math.floor((completedSize / fileSize) * 100);
                         const progressText = `${completedSizeMB.toFixed(2)}mb / ${fileSizeMB.toFixed(2)}mb`;
-                        //let percentCompleted = Math.floor(((totalUploadedSize + event.loaded) / fileSize) * 100)
 
-                        //commit('UPLOADING_FILE_PROGRESS', percentCompleted >= 100 ? 100 : percentCompleted)
+                        // Use throttled progress update for better UI performance
+                        updateProgressThrottled(commit, getters, progress >= 100 ? 100 : progress, fileSize);
 
-                        commit('UPLOADING_FILE_PROGRESS', progress >= 100 ? 100 : progress);
-
-                        // Set processing file
+                        // Set processing file when upload completes
                         if (progress >= 100) {
                             commit('PROCESSING_FILE', true);
                         }
@@ -303,11 +322,21 @@ const actions = {
                         // Start uploading next file if file queue is not empty
                         if (getters.fileQueue.length) {
                             Vue.prototype.$handleUploading(getters.fileQueue[0])
+                        } else {
+                            // All files completed - ensure global progress is 100%
+                            commit('UPDATE_GLOBAL_PROGRESS', {
+                                uploadedSize: getters.totalQueueSize,
+                                currentFileSize: 0,
+                                currentFileProgress: 100
+                            });
                         }
 
                         // Reset upload process
                         if (!getters.fileQueue.length) {
-                            commit('CLEAR_UPLOAD_PROGRESS')
+                            // Small delay to show 100% before clearing
+                            setTimeout(() => {
+                                commit('CLEAR_UPLOAD_PROGRESS')
+                            }, 1000);
                         }
 
                         // Reload File data after folder uploading is finished
@@ -560,15 +589,33 @@ const mutations = {
     },
     ADD_FILES_TO_QUEUE(state, file) {
         state.fileQueue.push(file)
+        // Add file size to total queue size for weighted progress calculation
+        state.totalQueueSize += file.file.size
     },
     SHIFT_FROM_FILE_QUEUE(state) {
-        state.fileQueue.shift()
+        const removedFile = state.fileQueue.shift()
+        // Add completed file size to uploaded queue size
+        if (removedFile) {
+            state.uploadedQueueSize += removedFile.file.size
+        }
     },
     PROCESSING_FILE(state, status) {
         state.isProcessingFile = status
     },
     UPLOADING_FILE_PROGRESS(state, percentage) {
         state.uploadingProgress = percentage
+        state.currentFileProgress = percentage
+    },
+    UPDATE_GLOBAL_PROGRESS(state, { uploadedSize, currentFileSize, currentFileProgress }) {
+        // Calculate global progress based on total uploaded size + current file progress
+        const currentFileUploadedSize = (currentFileProgress / 100) * currentFileSize
+        const totalUploadedWithCurrent = state.uploadedQueueSize + currentFileUploadedSize
+        
+        if (state.totalQueueSize > 0) {
+            state.globalUploadProgress = Math.min(100, Math.floor((totalUploadedWithCurrent / state.totalQueueSize) * 100))
+        } else {
+            state.globalUploadProgress = 0
+        }
     },
     INCREASE_FILES_IN_QUEUES_TOTAL(state) {
         state.filesInQueueTotal += 1
@@ -579,6 +626,11 @@ const mutations = {
     CLEAR_UPLOAD_PROGRESS(state) {
         state.filesInQueueUploaded = 0
         state.filesInQueueTotal = 0
+        state.uploadingProgress = 0
+        state.globalUploadProgress = 0
+        state.totalQueueSize = 0
+        state.uploadedQueueSize = 0
+        state.currentFileProgress = 0
         state.fileQueue = []
     },
 }
@@ -587,6 +639,10 @@ const getters = {
     filesInQueueUploaded: (state) => state.filesInQueueUploaded,
     filesInQueueTotal: (state) => state.filesInQueueTotal,
     uploadingProgress: (state) => state.uploadingProgress,
+    globalUploadProgress: (state) => state.globalUploadProgress,
+    currentFileProgress: (state) => state.currentFileProgress,
+    totalQueueSize: (state) => state.totalQueueSize,
+    uploadedQueueSize: (state) => state.uploadedQueueSize,
     isUploadingFolder: (state) => state.isUploadingFolder,
     isProcessingFile: (state) => state.isProcessingFile,
     processingPopup: (state) => state.processingPopup,

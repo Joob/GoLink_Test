@@ -1,6 +1,6 @@
 <template>
     <div class="progress-bar">
-        <span class="bg-theme" :style="{ width: progress + '%' }"></span>
+        <span class="bg-theme progress-fill" :style="{ width: progress + '%' }"></span>
     </div>
 </template>
 
@@ -22,11 +22,12 @@ export default {
     margin-top: 6px;
     border-radius: 10px;
 
-    span {
+    .progress-fill {
         display: block;
         height: 100%;
         border-radius: 10px;
         max-width: 100%;
+        transition: width 0.3s ease-out; // Smooth progress animation
     }
 }
 

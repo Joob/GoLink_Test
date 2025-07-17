@@ -8,15 +8,9 @@
                     {{ $t('uploading.processing_file') }}
                 </span>
 
-                <!--Multi file upload-->
+                <!--Upload progress-->
                 <span v-else-if="fileQueue.length > 0">
-                    {{
-                        $t('uploading.progress', {
-                            current: filesInQueueUploaded,
-                            total: filesInQueueTotal,
-                            progress: displayProgress,
-                        })
-                    }}
+                    {{ progressText }}
                 </span>
             </div>
             <div class="progress-wrapper">
@@ -59,18 +53,41 @@ export default {
             } else {
                 return this.uploadingProgress;
             }
+        },
+        progressText() {
+            // Show more detailed progress text for better user experience
+            if (this.isProcessingFile) {
+                return this.$t('uploading.processing_file');
+            } else if (this.filesInQueueTotal > 1) {
+                return this.$t('uploading.progress', {
+                    current: this.filesInQueueUploaded,
+                    total: this.filesInQueueTotal,
+                    progress: this.displayProgress,
+                });
+            } else {
+                return this.$t('uploading.progress', {
+                    current: this.filesInQueueUploaded,
+                    total: this.filesInQueueTotal,
+                    progress: this.displayProgress,
+                });
+            }
         }
     },
     methods: {
         cancelUpload() {
+            // Emit cancel event for any ongoing uploads
             events.$emit('cancel-upload')
+            
+            // Clear all upload progress state
             this.$store.commit('CLEAR_UPLOAD_PROGRESS')
+            
+            // Show cancellation message after a brief delay
             setTimeout(() => {
                 events.$emit('toaster', { 
                     type: 'danger',
                     message: this.$t('uploaded_canceled'),
                 })
-            }, 1000) // 1 seconds delay
+            }, 500) // Reduced delay for better UX
         },
     },
 }

@@ -224,7 +224,7 @@ const actions = {
             .catch(() => Vue.prototype.$isSomethingWrong())
 
     },
-    uploadFiles: ({ commit, getters, dispatch}, { form, fileSize, totalUploadedSize, fileIndex = 0 }) => {
+    uploadFiles: ({ commit, getters, dispatch}, { form, fileSize, totalUploadedSize, fileIndex = 0, currentChunk = 1, totalChunks = 1 }) => {
         return new Promise((resolve, reject) => {
             // Get route
             let route = {
@@ -250,13 +250,26 @@ const actions = {
                     },
                     onUploadProgress: (event) => {
 
+                        // Calculate progress based on completed chunks + current chunk progress
+                        const completedChunksProgress = ((currentChunk - 1) / totalChunks) * 100;
+                        const currentChunkProgress = (event.loaded / event.total) * (100 / totalChunks);
+                        const totalProgress = completedChunksProgress + currentChunkProgress;
+                        
                         const completedSize = totalUploadedSize + event.loaded;
                         const fileSizeMB = fileSize / (1024 * 1024); // Convert fileSize to megabytes
                         const completedSizeMB = completedSize / (1024 * 1024); // Convert completedSize to megabytes
-                        const progress = Math.floor((completedSize / fileSize) * 100);
+                        const progress = Math.floor(Math.min(totalProgress, 100));
                         const progressText = `${completedSizeMB.toFixed(2)}mb / ${fileSizeMB.toFixed(2)}mb`;
 
-                        commit('UPLOADING_FILE_PROGRESS', progress >= 100 ? 100 : progress);
+                        commit('UPLOADING_FILE_PROGRESS', progress);
+
+                        // Update individual file progress
+                        commit('UPDATE_FILE_CHUNK_PROGRESS', {
+                            fileIndex,
+                            currentChunk,
+                            totalChunks,
+                            progress
+                        });
 
                         // Calculate upload speed and time remaining
                         const elapsed = (Date.now() - startTime) / 1000
@@ -265,8 +278,8 @@ const actions = {
 
                         commit('UPDATE_UPLOAD_STATS', { speed, timeRemaining: remaining })
 
-                        // Set processing file
-                        if (progress >= 100) {
+                        // Only set processing file when the entire file is actually complete
+                        if (currentChunk === totalChunks && event.loaded === event.total) {
                             commit('PROCESSING_FILE', true);
                         }
                     },
@@ -587,6 +600,8 @@ const actions = {
                 progress: 0,
                 speed: 0,
                 timeRemaining: null,
+                currentChunk: 0,
+                totalChunks: Math.ceil(item.file.size / (getters.config?.chunkSize || 1024 * 1024)), // Default 1MB chunks if config not available
             }
 
             // commit file to the upload queue
@@ -722,6 +737,14 @@ const mutations = {
     },
     UPLOADING_FILE_PROGRESS(state, percentage) {
         state.uploadingProgress = percentage
+        
+        // Update progress for the current file being uploaded
+        if (state.fileQueue.length > 0) {
+            const currentFile = state.fileQueue.find(file => !file.completed && !file.error && !file.paused)
+            if (currentFile) {
+                currentFile.progress = percentage
+            }
+        }
     },
     INCREASE_FILES_IN_QUEUES_TOTAL(state) {
         state.filesInQueueTotal += 1
@@ -800,6 +823,13 @@ const mutations = {
     },
     RESET_RETRY_ATTEMPT(state, fileIndex) {
         state.retryAttempts.delete(fileIndex)
+    },
+    UPDATE_FILE_CHUNK_PROGRESS(state, { fileIndex, currentChunk, totalChunks, progress }) {
+        if (state.fileQueue[fileIndex]) {
+            state.fileQueue[fileIndex].currentChunk = currentChunk
+            state.fileQueue[fileIndex].totalChunks = totalChunks
+            state.fileQueue[fileIndex].progress = progress
+        }
     },
 }
 

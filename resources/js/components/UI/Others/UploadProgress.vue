@@ -68,7 +68,12 @@
                         >
                             <div class="file-info">
                                 <div class="file-name">{{ file.file.name }}</div>
-                                <div class="file-size">{{ formatFileSize(file.file.size) }}</div>
+                                <div class="file-details">
+                                    <span class="file-size">{{ formatFileSize(file.file.size) }}</span>
+                                    <span v-if="file.totalChunks > 1" class="chunk-info">
+                                        ({{ file.currentChunk || 0 }}/{{ file.totalChunks }} chunks)
+                                    </span>
+                                </div>
                             </div>
                             <div class="file-controls">
                                 <button 
@@ -195,18 +200,21 @@ export default {
             this.filesViewExpanded = !this.filesViewExpanded
         },
         getFileProgress(index) {
-            if (index === 0) return this.uploadingProgress
-            if (index < this.filesInQueueUploaded) return 100
-            return 0
+            const file = this.fileQueue[index]
+            if (!file) return 0
+            
+            // Return the individual file progress, not the global upload progress
+            if (file.completed) return 100
+            if (file.error) return 0
+            return file.progress || 0
         },
         getFileState(index) {
-            if (index === 0) {
-                const file = this.fileQueue[index]
-                if (file && file.paused) return 'paused'
-                if (file && file.error) return 'error'
-                return 'loading'
-            }
-            if (index < this.filesInQueueUploaded) return 'success'
+            const file = this.fileQueue[index]
+            if (!file) return 'loading'
+            
+            if (file.completed) return 'success'
+            if (file.error) return 'error'
+            if (file.paused) return 'paused'
             return 'loading'
         },
         formatFileSize(bytes) {
@@ -396,10 +404,23 @@ export default {
                         white-space: nowrap;
                     }
 
-                    .file-size {
-                        @include font-size(11);
-                        color: $text;
-                        opacity: 0.7;
+                    .file-details {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: flex-end;
+
+                        .file-size {
+                            @include font-size(11);
+                            color: $text;
+                            opacity: 0.7;
+                        }
+
+                        .chunk-info {
+                            @include font-size(10);
+                            color: $text;
+                            opacity: 0.5;
+                            font-style: italic;
+                        }
                     }
                 }
 

@@ -244,7 +244,9 @@ const FunctionHelpers = {
                         .join('') +
                     '-' +
                     striped_to_safe_characters +
-                    '.part'
+                    '.part',
+                totalChunks = chunksCeil,
+                currentChunk = 0
 
             do {
                 // Check if upload is paused before each chunk
@@ -255,6 +257,8 @@ const FunctionHelpers = {
                 let isLastChunk = chunks.length === 1 ? 1 : 0,
                     chunk = chunks.shift(),
                     attempts = 0
+
+                currentChunk++
 
                 // Set form data
                 formData.set('name', item.file.name)
@@ -276,6 +280,8 @@ const FunctionHelpers = {
                             fileSize: item.file.size,
                             totalUploadedSize: uploadedSize,
                             fileIndex: fileIndex,
+                            currentChunk: currentChunk,
+                            totalChunks: totalChunks,
                         })
                         .then(() => {
                             uploadedSize = uploadedSize + chunk.size

@@ -12,6 +12,11 @@ const defaultState = {
     filesInQueueTotal: 0,
     uploadingProgress: 0,
     fileQueue: [],
+    // Enhanced upload tracking
+    uploadHistory: [], // Completed/failed uploads with details
+    activeUploads: [], // Currently uploading files with progress
+    uploadSpeeds: {}, // Upload speeds by file ID
+    uploadStartTimes: {}, // Start times by file ID
 }
 
 const actions = {
@@ -214,7 +219,7 @@ const actions = {
             .catch(() => Vue.prototype.$isSomethingWrong())
 
     },
-    uploadFiles: ({ commit, getters, dispatch}, { form, fileSize, totalUploadedSize }) => {
+    uploadFiles: ({ commit, getters, dispatch}, { form, fileSize, totalUploadedSize, fileData }) => {
         return new Promise((resolve, reject) => {
             // Get route
             let route = {
@@ -227,6 +232,19 @@ const actions = {
                 source = CancelToken.source()
             
             let completedUploads = 0;
+            
+            // Generate file ID for tracking if not provided
+            const fileId = fileData?.id || Date.now() + Math.random()
+            const startTime = Date.now()
+
+            // Add to active uploads if fileData provided
+            if (fileData) {
+                commit('ADD_ACTIVE_UPLOAD', {
+                    id: fileId,
+                    file: fileData.file || fileData,
+                    startTime
+                })
+            }
 
             axios
                 .post(route, form, {
@@ -241,11 +259,45 @@ const actions = {
                         const completedSizeMB = completedSize / (1024 * 1024); // Convert completedSize to megabytes
                         const progress = Math.floor((completedSize / fileSize) * 100);
                         const progressText = `${completedSizeMB.toFixed(2)}mb / ${fileSizeMB.toFixed(2)}mb`;
-                        //let percentCompleted = Math.floor(((totalUploadedSize + event.loaded) / fileSize) * 100)
-
-                        //commit('UPLOADING_FILE_PROGRESS', percentCompleted >= 100 ? 100 : percentCompleted)
+                        
+                        // Calculate upload speed and time remaining
+                        const elapsedTime = (Date.now() - startTime) / 1000; // seconds
+                        const uploadSpeed = elapsedTime > 0 ? (completedSize / elapsedTime) : 0;
+                        const remainingBytes = fileSize - completedSize;
+                        const timeRemaining = uploadSpeed > 0 ? (remainingBytes / uploadSpeed) : 0;
+                        
+                        // Format speed
+                        const formatSpeed = (bytesPerSecond) => {
+                            const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+                            let unitIndex = 0;
+                            let speed = bytesPerSecond;
+                            
+                            while (speed >= 1024 && unitIndex < units.length - 1) {
+                                speed /= 1024;
+                                unitIndex++;
+                            }
+                            
+                            return `${speed.toFixed(1)} ${units[unitIndex]}`;
+                        };
+                        
+                        // Format time
+                        const formatTime = (seconds) => {
+                            if (seconds < 60) return `${Math.round(seconds)}s`;
+                            if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+                            return `${Math.round(seconds / 3600)}h`;
+                        };
 
                         commit('UPLOADING_FILE_PROGRESS', progress >= 100 ? 100 : progress);
+                        
+                        // Update enhanced tracking
+                        if (fileData) {
+                            commit('UPDATE_UPLOAD_PROGRESS', {
+                                fileId,
+                                progress: progress >= 100 ? 100 : progress,
+                                speed: formatSpeed(uploadSpeed),
+                                timeRemaining: formatTime(timeRemaining)
+                            });
+                        }
 
                         // Set processing file
                         if (progress >= 100) {
@@ -258,7 +310,13 @@ const actions = {
 
                     completedUploads++;
 
-                    //const message = "All Files Uploaded Successfully";
+                    // Update upload status to completed
+                    if (fileData) {
+                        commit('UPDATE_UPLOAD_STATUS', {
+                            fileId,
+                            status: 'completed'
+                        });
+                    }
 
                     // Check if all files are uploaded
                     if (completedUploads === getters.fileQueue.length) {            
@@ -326,6 +384,15 @@ const actions = {
                     }
                 })
                 .catch((error) => {
+                    // Update upload status to error
+                    if (fileData) {
+                        commit('UPDATE_UPLOAD_STATUS', {
+                            fileId,
+                            status: 'error',
+                            error: error.response?.data?.message || error.message
+                        });
+                    }
+                    
                     try {
                       let title = '';
                       let message = '';
@@ -548,6 +615,22 @@ const actions = {
             // Increase total files in upload bar
             commit('INCREASE_FILES_IN_QUEUES_TOTAL')
         }
+    },
+    // Enhanced upload actions
+    cancelUpload: ({ commit }, fileId) => {
+        commit('UPDATE_UPLOAD_STATUS', { fileId, status: 'cancelled' })
+    },
+    cancelAllUploads: ({ commit, getters }) => {
+        getters.activeUploads.forEach(upload => {
+            commit('UPDATE_UPLOAD_STATUS', { fileId: upload.id, status: 'cancelled' })
+        })
+        commit('CLEAR_UPLOAD_PROGRESS')
+    },
+    clearCompletedUploads: ({ commit }) => {
+        commit('CLEAR_COMPLETED_UPLOADS')
+    },
+    clearAllUploads: ({ commit }) => {
+        commit('CLEAR_ALL_UPLOADS')
     }
 }
 
@@ -581,6 +664,74 @@ const mutations = {
         state.filesInQueueTotal = 0
         state.fileQueue = []
     },
+    // Enhanced upload mutations
+    ADD_ACTIVE_UPLOAD(state, fileData) {
+        const uploadItem = {
+            id: fileData.id || Date.now() + Math.random(),
+            file: fileData.file,
+            progress: 0,
+            status: 'pending',
+            startTime: Date.now(),
+            uploadSpeed: null,
+            timeRemaining: null
+        }
+        state.activeUploads.push(uploadItem)
+        state.uploadStartTimes[uploadItem.id] = Date.now()
+    },
+    UPDATE_UPLOAD_PROGRESS(state, { fileId, progress, speed, timeRemaining }) {
+        const upload = state.activeUploads.find(u => u.id === fileId)
+        if (upload) {
+            upload.progress = progress
+            upload.status = progress >= 100 ? 'completed' : 'uploading'
+            if (speed) upload.uploadSpeed = speed
+            if (timeRemaining) upload.timeRemaining = timeRemaining
+            
+            // Store speed for calculations
+            if (speed) state.uploadSpeeds[fileId] = speed
+        }
+    },
+    UPDATE_UPLOAD_STATUS(state, { fileId, status, error }) {
+        const uploadIndex = state.activeUploads.findIndex(u => u.id === fileId)
+        if (uploadIndex !== -1) {
+            const upload = state.activeUploads[uploadIndex]
+            upload.status = status
+            if (error) upload.error = error
+            
+            // Move to history if completed or failed
+            if (['completed', 'error', 'cancelled'].includes(status)) {
+                upload.endTime = Date.now()
+                state.uploadHistory.push({ ...upload })
+                state.activeUploads.splice(uploadIndex, 1)
+                
+                // Clean up tracking data
+                delete state.uploadSpeeds[fileId]
+                delete state.uploadStartTimes[fileId]
+            }
+        }
+    },
+    REMOVE_UPLOAD_FROM_ACTIVE(state, fileId) {
+        const index = state.activeUploads.findIndex(u => u.id === fileId)
+        if (index !== -1) {
+            state.activeUploads.splice(index, 1)
+            delete state.uploadSpeeds[fileId]
+            delete state.uploadStartTimes[fileId]
+        }
+    },
+    CLEAR_UPLOAD_HISTORY(state) {
+        state.uploadHistory = []
+    },
+    CLEAR_COMPLETED_UPLOADS(state) {
+        state.uploadHistory = state.uploadHistory.filter(u => u.status !== 'completed')
+    },
+    CLEAR_ALL_UPLOADS(state) {
+        state.activeUploads = []
+        state.uploadHistory = []
+        state.uploadSpeeds = {}
+        state.uploadStartTimes = {}
+        state.filesInQueueUploaded = 0
+        state.filesInQueueTotal = 0
+        state.fileQueue = []
+    }
 }
 
 const getters = {
@@ -591,6 +742,44 @@ const getters = {
     isProcessingFile: (state) => state.isProcessingFile,
     processingPopup: (state) => state.processingPopup,
     fileQueue: (state) => state.fileQueue,
+    // Enhanced upload getters
+    activeUploads: (state) => state.activeUploads,
+    uploadHistory: (state) => state.uploadHistory,
+    allUploads: (state) => [...state.activeUploads, ...state.uploadHistory],
+    hasActiveUploads: (state) => state.activeUploads.length > 0 || state.fileQueue.length > 0,
+    hasCompletedUploads: (state) => state.uploadHistory.some(u => u.status === 'completed'),
+    hasFailedUploads: (state) => state.uploadHistory.some(u => u.status === 'error'),
+    totalUploadsCount: (state) => state.activeUploads.length + state.uploadHistory.length,
+    averageUploadSpeed: (state) => {
+        const speeds = Object.values(state.uploadSpeeds).filter(Boolean)
+        if (speeds.length === 0) return null
+        
+        const sum = speeds.reduce((acc, speed) => {
+            // Parse speed string (e.g., "1.5 MB/s") to bytes per second
+            const match = speed.match(/^(\d+\.?\d*)\s*(B|KB|MB|GB)\/s$/i)
+            if (!match) return acc
+            
+            const value = parseFloat(match[1])
+            const unit = match[2].toUpperCase()
+            const multipliers = { B: 1, KB: 1024, MB: 1024 * 1024, GB: 1024 * 1024 * 1024 }
+            
+            return acc + (value * (multipliers[unit] || 1))
+        }, 0)
+        
+        return sum / speeds.length
+    },
+    overallUploadProgress: (state) => {
+        const allFiles = [...state.activeUploads, ...state.uploadHistory]
+        if (allFiles.length === 0) return 0
+        
+        const totalProgress = allFiles.reduce((sum, upload) => {
+            if (upload.status === 'completed') return sum + 100
+            if (upload.status === 'uploading') return sum + (upload.progress || 0)
+            return sum
+        }, 0)
+        
+        return totalProgress / allFiles.length
+    }
 }
 
 export default {

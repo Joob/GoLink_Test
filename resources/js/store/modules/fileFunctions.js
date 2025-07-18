@@ -12,6 +12,13 @@ const defaultState = {
     filesInQueueTotal: 0,
     uploadingProgress: 0,
     fileQueue: [],
+    // Enhanced upload tracking
+    uploadStartTime: null,
+    uploadSpeed: 0,
+    uploadedBytes: 0,
+    currentUploadingFile: null,
+    recentUploads: [],
+    canCancelUpload: true,
 }
 
 const actions = {
@@ -241,10 +248,17 @@ const actions = {
                         const completedSizeMB = completedSize / (1024 * 1024); // Convert completedSize to megabytes
                         const progress = Math.floor((completedSize / fileSize) * 100);
                         const progressText = `${completedSizeMB.toFixed(2)}mb / ${fileSizeMB.toFixed(2)}mb`;
-                        //let percentCompleted = Math.floor(((totalUploadedSize + event.loaded) / fileSize) * 100)
-
-                        //commit('UPLOADING_FILE_PROGRESS', percentCompleted >= 100 ? 100 : percentCompleted)
-
+                        
+                        // Calculate upload speed
+                        const currentTime = Date.now()
+                        const startTime = getters.uploadStartTime
+                        if (startTime && currentTime > startTime) {
+                            const elapsedSeconds = (currentTime - startTime) / 1000
+                            const speed = completedSize / elapsedSeconds // bytes per second
+                            commit('UPDATE_UPLOAD_SPEED', speed)
+                        }
+                        
+                        commit('UPDATE_UPLOADED_BYTES', completedSize)
                         commit('UPLOADING_FILE_PROGRESS', progress >= 100 ? 100 : progress);
 
                         // Set processing file
@@ -275,6 +289,15 @@ const actions = {
                         commit('PROCESSING_FILE', false)
 
                         commit('INCREASE_FOLDER_ITEM', response.data.data.attributes.parent_id)
+                        
+                        // Add to recent uploads
+                        commit('ADD_TO_RECENT_UPLOADS', {
+                            id: response.data.data.id,
+                            name: response.data.data.attributes.name,
+                            size: response.data.data.attributes.filesize,
+                            type: response.data.data.type,
+                            uploadedAt: new Date().toISOString(),
+                        })
 
                         // Remove first file from file queue
                         commit('SHIFT_FROM_FILE_QUEUE')
@@ -302,6 +325,7 @@ const actions = {
 
                         // Start uploading next file if file queue is not empty
                         if (getters.fileQueue.length) {
+                            commit('SET_CURRENT_UPLOADING_FILE', getters.fileQueue[0])
                             Vue.prototype.$handleUploading(getters.fileQueue[0])
                         }
 
@@ -371,6 +395,13 @@ const actions = {
 
                         // Skip processing the current file with an error and move to the next file
                         commit('SHIFT_FROM_FILE_QUEUE');
+                        
+                        // Reset current uploading file
+                        if (getters.fileQueue.length > 0) {
+                            commit('SET_CURRENT_UPLOADING_FILE', getters.fileQueue[0])
+                        } else {
+                            commit('SET_CURRENT_UPLOADING_FILE', null)
+                        }
 
                         // Start uploading the next file if the file queue is not empty
                         if (getters.fileQueue.length) {
@@ -542,6 +573,9 @@ const actions = {
 
             // Start uploading if uploading process isn't running
             if (getters.filesInQueueTotal === 0) {
+                // Set upload start time and current file
+                commit('SET_UPLOAD_START_TIME', Date.now())
+                commit('SET_CURRENT_UPLOADING_FILE', item)
                 Vue.prototype.$handleUploading(getters.fileQueue[0])
             }
 
@@ -580,6 +614,34 @@ const mutations = {
         state.filesInQueueUploaded = 0
         state.filesInQueueTotal = 0
         state.fileQueue = []
+        state.uploadStartTime = null
+        state.uploadSpeed = 0
+        state.uploadedBytes = 0
+        state.currentUploadingFile = null
+        state.canCancelUpload = true
+    },
+    // Enhanced upload mutations
+    SET_UPLOAD_START_TIME(state, timestamp) {
+        state.uploadStartTime = timestamp
+    },
+    UPDATE_UPLOAD_SPEED(state, speed) {
+        state.uploadSpeed = speed
+    },
+    UPDATE_UPLOADED_BYTES(state, bytes) {
+        state.uploadedBytes = bytes
+    },
+    SET_CURRENT_UPLOADING_FILE(state, file) {
+        state.currentUploadingFile = file
+    },
+    ADD_TO_RECENT_UPLOADS(state, file) {
+        state.recentUploads.unshift(file)
+        // Keep only last 5 uploads
+        if (state.recentUploads.length > 5) {
+            state.recentUploads = state.recentUploads.slice(0, 5)
+        }
+    },
+    SET_CANCEL_UPLOAD_STATE(state, canCancel) {
+        state.canCancelUpload = canCancel
     },
 }
 
@@ -591,6 +653,18 @@ const getters = {
     isProcessingFile: (state) => state.isProcessingFile,
     processingPopup: (state) => state.processingPopup,
     fileQueue: (state) => state.fileQueue,
+    // Enhanced upload getters
+    uploadStartTime: (state) => state.uploadStartTime,
+    uploadSpeed: (state) => state.uploadSpeed,
+    uploadedBytes: (state) => state.uploadedBytes,
+    currentUploadingFile: (state) => state.currentUploadingFile,
+    recentUploads: (state) => state.recentUploads,
+    canCancelUpload: (state) => state.canCancelUpload,
+    estimatedTimeRemaining: (state) => {
+        if (!state.uploadSpeed || state.uploadingProgress >= 100) return 0
+        const remainingBytes = (state.currentUploadingFile?.file?.size || 0) - state.uploadedBytes
+        return Math.ceil(remainingBytes / state.uploadSpeed)
+    },
 }
 
 export default {

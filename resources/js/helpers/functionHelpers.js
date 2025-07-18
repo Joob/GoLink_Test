@@ -241,16 +241,20 @@ const FunctionHelpers = {
                     striped_to_safe_characters +
                     '.part'
 
+            let chunkIndex = 0
+
             do {
                 let isLastChunk = chunks.length === 1 ? 1 : 0,
                     chunk = chunks.shift(),
-                    attempts = 0
+                    attempts = 0,
+                    chunkUploadSuccess = false
 
                 // Set form data
                 formData.set('name', item.file.name)
                 formData.set('chunk', chunk, source_name)
                 formData.set('extension', item.file.name.split('.').pop())
                 formData.set('is_last_chunk', isLastChunk)
+                formData.set('chunk_index', chunkIndex)
 
                 if (item.path && item.path !== '/')
                     formData.set('path', item.path)
@@ -258,44 +262,54 @@ const FunctionHelpers = {
                 if (item.parent_id)
                     formData.set('parent_id', item.parent_id)
 
-                // Upload chunks
+                // Upload chunks with improved retry logic
                 do {
-                    await store
-                        .dispatch('uploadFiles', {
-                            form: formData,
-                            fileSize: item.file.size,
-                            totalUploadedSize: uploadedSize,
-                        })
-                        .then(() => {
-                            uploadedSize = uploadedSize + chunk.size
-                        })
-                        .catch((error) => {
-                            // Count attempts
-                            attempts++
+                    try {
+                        await store
+                            .dispatch('uploadFiles', {
+                                form: formData,
+                                fileSize: item.file.size,
+                                totalUploadedSize: uploadedSize,
+                            })
+                            .then(() => {
+                                uploadedSize = uploadedSize + chunk.size
+                                chunkUploadSuccess = true
+                            })
+                            .catch((error) => {
+                                // Count attempts
+                                attempts++
+                                
+                                // Log chunk retry for debugging
+                                console.warn(`Chunk ${chunkIndex} upload failed, attempt ${attempts}:`, error.message)
 
-                            // Show Error
-                            //if (attempts === 3)
+                                // Break uploading process for certain critical errors
+                                if ([500, 422, 413].includes(error.response?.status)) {
+                                    if (attempts >= 3) {
+                                        isNotGeneralError = false
+                                        console.error(`Chunk upload failed after 3 attempts for chunk ${chunkIndex}`)
+                                    }
+                                }
 
-                            // Break uploading process
-                            if ([500, 422].includes(error.response.status)) {
-                                isNotGeneralError = false
-                                //this.$isSomethingWrong()
-                            }
-
-                            // Show Error
-                            if (attempts === 1)
-                                //this.$isSomethingWrong()
-                                store.commit('PROCESSING_FILE', false)
-                                store.commit('CLEAR_UPLOAD_PROGRESS')
-
-                            // Break uploading process
-                           /* if ([500, 415].includes(error.response.status))
-                                isNotGeneralError = false*/
-
-                            //store.commit('PROCESSING_FILE', false)
-                            //store.commit('CLEAR_UPLOAD_PROGRESS')
-                        })
-                } while (isNotGeneralError && attempts !== 0 && attempts !== 3)
+                                // Show error after all attempts failed
+                                if (attempts >= 3) {
+                                    store.commit('PROCESSING_FILE', false)
+                                    store.commit('CLEAR_UPLOAD_PROGRESS')
+                                }
+                                
+                                // Add exponential backoff for retries
+                                if (attempts < 3) {
+                                    const delay = Math.min(1000 * Math.pow(2, attempts - 1), 5000)
+                                    return new Promise(resolve => setTimeout(resolve, delay))
+                                }
+                            })
+                    } catch (error) {
+                        console.error(`Unexpected error during chunk ${chunkIndex} upload:`, error)
+                        attempts = 3 // Force exit from retry loop
+                        isNotGeneralError = false
+                    }
+                } while (isNotGeneralError && !chunkUploadSuccess && attempts < 3)
+                
+                chunkIndex++
             } while (isNotGeneralError && chunks.length !== 0)
         }
 

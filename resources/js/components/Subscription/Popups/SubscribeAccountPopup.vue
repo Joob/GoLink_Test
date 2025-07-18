@@ -160,6 +160,12 @@ export default {
         isSelectedYearlyPlans() {
             this.selectedPlan = undefined
         },
+        '$parent.isVisibleWrapper'(newVal) {
+            // When popup becomes visible, load the plans data
+            if (newVal && this.$parent.name === 'select-plan-subscription') {
+                this.loadPlansData()
+            }
+        },
     },
     computed: {
         ...mapGetters(['config', 'user']),
@@ -316,13 +322,6 @@ export default {
                 })
         },
     },
-    mounted() {
-        // If the popup is already supposed to be open, load the data
-        // This handles the case where the component mounts after the popup:open event
-        if (this.$parent && this.$parent.isVisible) {
-            this.loadPlansData()
-        }
-    },
     created() {
         // Reset states on popup close
         events.$on('popup:close', () => {
@@ -330,14 +329,8 @@ export default {
             this.isPaymentOptionPage = false
             this.selectedPlan = undefined
             this.paypal.isMethodsLoaded = false
-        })
-
-        // Listen for popup open event to load plans data
-        events.$on('popup:open', (data) => {
-            if (data.name === 'select-plan-subscription') {
-                // Ensure we have fresh data when popup opens
-                this.loadPlansData()
-            }
+            this.plans = undefined // Clear plans data when popup closes
+            this.isLoading = false
         })
     },
 }

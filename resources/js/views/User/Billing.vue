@@ -1,5 +1,6 @@
 <template>
     <PageTab>
+        <Spinner v-if="isLoading" />
         <!-- Metered subscription components -->
         <div v-if="config.subscriptionType === 'metered'">
             <!--Failed Payments-->
@@ -82,6 +83,7 @@ import UserEditSubscription from '../../components/Subscription/UserEditSubscrip
 import UserFailedPayments from '../../components/Subscription/UserFailedPayments'
 import UserUsageEstimates from '../../components/Subscription/UserUsageEstimates'
 import UserBillingAlerts from '../../components/Subscription/UserBillingAlerts'
+import Spinner from '../../components/UI/Others/Spinner'
 import PageTab from '../../components/Layout/PageTab'
 import UserBalance from '../../components/Subscription/UserBalance'
 import { mapGetters } from 'vuex'
@@ -101,9 +103,22 @@ export default {
         UserBillingAlerts,
         UserBalance,
         PageTab,
+        Spinner,
     },
     computed: {
         ...mapGetters(['config']),
+    },
+    data() {
+        return {
+            isLoading: false
+        }
+    },
+    created() {
+        // Exemplo de loading ao iniciar o componente
+        this.isLoading = true
+        setTimeout(() => {
+            this.isLoading = false
+        }, 700)
     }
 }
 </script>

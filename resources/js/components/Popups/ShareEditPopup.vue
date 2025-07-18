@@ -317,10 +317,11 @@ export default {
             }
         },
         showpassword_in: {
-            //handler(newVal) {
-                //console.log('showpassword_in changed:', newVal);
-                // You can add additional logic here if needed
-            //},
+            handler(newVal) {
+                if (newVal && this.shareOptions) {
+                    this.shareOptions.passwordShow = newVal;
+                }
+            },
             immediate: true
         },
     },

@@ -12,42 +12,69 @@ class OTPManager extends Controller
 
     public function resendOtpCode(Request $request)
     {
-        if (auth()->check()) {
-            $request->user()->sendNewOtpCode();
-
-            return response()->noContent();
+        // Validate that user is authenticated
+        if (!auth()->check()) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
         }
+
+        $user = $request->user();
+        
+        // Check if user already has a valid unexpired OTP code
+        if ($user->otp_code && !$user->otpCodeIsExpired()) {
+            return response()->json(['message' => 'Valid OTP code already exists'], 429);
+        }
+
+        $user->sendNewOtpCode();
+
+        return response()->noContent();
     }
 
     /**
+     * Send OTP authentication code to user
      * @param $email
      * @param bool $checkExpiration
      * @return bool
      */
     private function sendOtpAuthCode($email, $checkExpiration = true)
     {
-        $user = User::query()->where('email', $email)->first();
-        if ($user && (!$checkExpiration || $user->otpCodeIsExpired())) {
+        $user = User::where('email', $email)->first();
+        
+        if (!$user) {
+            return false;
+        }
+        
+        if (!$checkExpiration || $user->otpCodeIsExpired()) {
             $user->sendNewOtpCode();
             return true;
         }
+        
         return false;
     }
 
     public function validateOtpCode(Request $request)
     {
-        // Validate otp code - can be invalid or expired - same error to pass back.
-        if (
-            ! $request->input('otp_code') ||
-            ! \auth()->user() ||
-            ! \auth()->user()->verifyOtpCode((string) $request->input('otp_code'))
-        ) {
+        // Validate input
+        $request->validate([
+            'otp_code' => 'required|string|size:6|regex:/^[0-9]{6}$/'
+        ]);
+
+        $user = auth()->user();
+        
+        // Check if user is authenticated
+        if (!$user) {
             return new JsonResponse([
-                'otp_code'=>__('Security Code is Invalid or Expired!'),
-            ], 424);
+                'message' => 'Unauthenticated'
+            ], 401);
         }
 
-        \auth()->user()->resetOtpCode();
+        // Validate otp code - can be invalid or expired - same error to pass back.
+        if (!$user->verifyOtpCode((string) $request->input('otp_code'))) {
+            return new JsonResponse([
+                'otp_code' => __('Security Code is Invalid or Expired!'),
+            ], 422);
+        }
+
+        $user->resetOtpCode();
 
         return response()
             ->json([], 200)

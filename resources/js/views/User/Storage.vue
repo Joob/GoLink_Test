@@ -1,12 +1,12 @@
 <template>
     <PageTab>
-        <div v-if="distribution" class="card shadow-card">
+        <Spinner v-if="isLoading" />
+        <div v-if="distribution && !isLoading" class="card shadow-card">
             <FormLabel icon="hard-drive">
                 {{ $t('storage_usage') }}
             </FormLabel>
 
             <b class="-mt-3 block text-2xl font-extrabold sm:text-3xl">
-                <!--{{ storage.data.attributes.used }}-->
                 {{ updatedStorageUsed }} {{ $t('used') }}
             </b>
 
@@ -21,7 +21,7 @@
 
             <ProgressLine v-if="storage.data.attributes.used !== '0B'" :data="distribution" class="mt-5" />
         </div>
-        <div v-if="distribution" class="card shadow-card">
+        <div v-if="distribution && !isLoading" class="card shadow-card">
             <FormLabel icon="hard-drive">
                 {{ $t('upload') }}
             </FormLabel>
@@ -36,7 +36,7 @@
 
             <BarChart :data="storage.data.meta.traffic.chart.upload" color="#FFBD2D" />
         </div>
-        <div v-if="distribution" class="card shadow-card">
+        <div v-if="distribution && !isLoading" class="card shadow-card">
             <FormLabel icon="hard-drive">
                 {{ $t('download') }}
             </FormLabel>
@@ -58,6 +58,7 @@
 import ProgressLine from '../../components/UI/ProgressChart/ProgressLine'
 import FormLabel from '../../components/UI/Labels/FormLabel'
 import PageTab from '../../components/Layout/PageTab'
+import Spinner from '../../components/UI/Others/Spinner'
 import axios from 'axios'
 import BarChart from '../../components/UI/BarChart/BarChart'
 import { mapGetters } from 'vuex'
@@ -69,6 +70,7 @@ export default {
         ProgressLine,
         FormLabel,
         PageTab,
+        Spinner,
     },
     computed: {
         ...mapGetters(['config']),
@@ -88,9 +90,11 @@ export default {
     },
     methods: {
         fetchStorageData() {
+            this.isLoading = true
             axios.get('/api/user/storage').then((response) => {
                 this.distribution = this.$mapStorageUsage(response.data)
                 this.storage = response.data
+            }).finally(() => {
                 this.isLoading = false
             })
         },
@@ -99,7 +103,7 @@ export default {
         // Call the function to fetch the storage data initially
         this.fetchStorageData();
 
-        // Refresh the storage data and notifications every 1 second
+        // Refresh the storage data and notifications every 15 seconds
         setInterval(() => {
             this.fetchStorageData();
         }, 15000);

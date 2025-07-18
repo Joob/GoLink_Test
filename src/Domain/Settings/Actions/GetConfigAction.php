@@ -46,7 +46,7 @@ class GetConfigAction
             // User
             $isUser = auth()->check();
             $user = auth()->user();
-            $isAuthenticated = $isUser && $user->otp_code === null;
+            $isAuthenticated = $isUser && ($user->otp_code === null || $user->otpCodeIsExpired());
 
             // Default user settings
             $defaultEmoji = $isUser ? $user->settings->emoji_type : 'twemoji';

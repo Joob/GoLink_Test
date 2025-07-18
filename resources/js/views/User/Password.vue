@@ -1,5 +1,6 @@
 <template>
     <div v-if="user">
+        <Spinner v-if="isLoading" />
         <!--2fa authentication-->
         <div v-if="!user.data.attributes.socialite_account" class="card shadow-card">
             <FormLabel icon="smartphone">
@@ -176,6 +177,7 @@ import InfoBox from '../../components/UI/Others/InfoBox'
 import AppInputSwitch from '../../components/Forms/Layouts/AppInputSwitch'
 import AppInputButton from '../../components/Forms/Layouts/AppInputButton'
 import AppInputText from '../../components/Forms/Layouts/AppInputText'
+import Spinner from '../../components/UI/Others/Spinner'
 import { required } from 'vee-validate/dist/rules'
 import { XIcon, Trash2Icon } from 'vue-feather-icons'
 import { events } from '../../bus'
@@ -197,6 +199,7 @@ export default {
         required,
         InfoBox,
         XIcon,
+        Spinner,
     },
     computed: {
         ...mapGetters(['user']),

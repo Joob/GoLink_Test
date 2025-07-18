@@ -15,8 +15,10 @@ use App\Users\Controllers\Verification\ResendVerificationEmailController;
 Route::post('/check', CheckAccountController::class);
 
 // Send OTP Code
-Route::post('/send-otp-code', [OTPManager::class, 'resendOtpCode']);
-Route::post('/validate-otp-code', [OTPManager::class, 'validateOtpCode']);
+Route::post('/send-otp-code', [OTPManager::class, 'resendOtpCode'])
+    ->middleware('throttle:5,1'); // 5 attempts per minute
+Route::post('/validate-otp-code', [OTPManager::class, 'validateOtpCode'])
+    ->middleware('throttle:10,1'); // 10 attempts per minute
 
 // Email verification
 Route::get('/verify/{id}', VerifyEmailController::class)

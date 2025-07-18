@@ -242,9 +242,9 @@ export default {
 <style scoped lang="scss">
 @import '../../../sass/vuefilemanager/variables';
 
-.menu-bar {
+/*.menu-bar {
     background: linear-gradient(180deg, rgba(246, 245, 241, 0.8) 0%, rgba(243, 244, 246, 0.8) 100%);
-}
+}*/
 
 .router-link-active {
     &.home .button-icon {

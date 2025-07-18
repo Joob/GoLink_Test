@@ -69,9 +69,7 @@
                 <!--Router Content-->
                 <router-view :user="user" />
             </div>
-            <div id="loader" v-if="isLoading">
-                <Spinner />
-            </div>
+            <Spinner v-if="isLoading" />
         </div>
     </div>
 </template>

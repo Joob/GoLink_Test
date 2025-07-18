@@ -12,6 +12,16 @@ const defaultState = {
     filesInQueueTotal: 0,
     uploadingProgress: 0,
     fileQueue: [],
+    // Enhanced upload state
+    activeUploads: new Map(), // Track active upload requests
+    maxSimultaneousUploads: 3,
+    uploadStats: {
+        speed: 0,
+        timeRemaining: 0,
+        startTime: null,
+    },
+    retryAttempts: new Map(), // Track retry attempts per file
+    pausedUploads: new Set(), // Track paused uploads
 }
 
 const actions = {
@@ -214,7 +224,7 @@ const actions = {
             .catch(() => Vue.prototype.$isSomethingWrong())
 
     },
-    uploadFiles: ({ commit, getters, dispatch}, { form, fileSize, totalUploadedSize }) => {
+    uploadFiles: ({ commit, getters, dispatch}, { form, fileSize, totalUploadedSize, fileIndex = 0 }) => {
         return new Promise((resolve, reject) => {
             // Get route
             let route = {
@@ -226,7 +236,11 @@ const actions = {
             const CancelToken = axios.CancelToken,
                 source = CancelToken.source()
             
+            // Store active upload for cancellation capability
+            commit('SET_ACTIVE_UPLOAD', { fileIndex, source })
+            
             let completedUploads = 0;
+            const startTime = Date.now()
 
             axios
                 .post(route, form, {
@@ -241,11 +255,15 @@ const actions = {
                         const completedSizeMB = completedSize / (1024 * 1024); // Convert completedSize to megabytes
                         const progress = Math.floor((completedSize / fileSize) * 100);
                         const progressText = `${completedSizeMB.toFixed(2)}mb / ${fileSizeMB.toFixed(2)}mb`;
-                        //let percentCompleted = Math.floor(((totalUploadedSize + event.loaded) / fileSize) * 100)
-
-                        //commit('UPLOADING_FILE_PROGRESS', percentCompleted >= 100 ? 100 : percentCompleted)
 
                         commit('UPLOADING_FILE_PROGRESS', progress >= 100 ? 100 : progress);
+
+                        // Calculate upload speed and time remaining
+                        const elapsed = (Date.now() - startTime) / 1000
+                        const speed = event.loaded / elapsed
+                        const remaining = (fileSize - (totalUploadedSize + event.loaded)) / speed
+
+                        commit('UPDATE_UPLOAD_STATS', { speed, timeRemaining: remaining })
 
                         // Set processing file
                         if (progress >= 100) {
@@ -258,7 +276,8 @@ const actions = {
 
                     completedUploads++;
 
-                    //const message = "All Files Uploaded Successfully";
+                    // Remove from active uploads
+                    commit('REMOVE_ACTIVE_UPLOAD', fileIndex)
 
                     // Check if all files are uploaded
                     if (completedUploads === getters.fileQueue.length) {            
@@ -275,6 +294,9 @@ const actions = {
                         commit('PROCESSING_FILE', false)
 
                         commit('INCREASE_FOLDER_ITEM', response.data.data.attributes.parent_id)
+
+                        // Mark file as completed
+                        commit('MARK_FILE_COMPLETED', fileIndex)
 
                         // Remove first file from file queue
                         commit('SHIFT_FROM_FILE_QUEUE')
@@ -300,10 +322,8 @@ const actions = {
                         // Increase count in files in queue uploaded for 1
                         commit('INCREASE_FILES_IN_QUEUE_UPLOADED')
 
-                        // Start uploading next file if file queue is not empty
-                        if (getters.fileQueue.length) {
-                            Vue.prototype.$handleUploading(getters.fileQueue[0])
-                        }
+                        // Start uploading next files if queue is not empty and we can handle more simultaneous uploads
+                        dispatch('processUploadQueue')
 
                         // Reset upload process
                         if (!getters.fileQueue.length) {
@@ -326,6 +346,25 @@ const actions = {
                     }
                 })
                 .catch((error) => {
+                    // Remove from active uploads
+                    commit('REMOVE_ACTIVE_UPLOAD', fileIndex)
+                    
+                    // Handle retry logic
+                    const currentRetries = getters.retryAttempts.get(fileIndex) || 0
+                    const maxRetries = 3
+                    
+                    if (currentRetries < maxRetries && !axios.isCancel(error)) {
+                        // Exponential backoff retry
+                        const backoffDelay = Math.pow(2, currentRetries) * 1000
+                        commit('INCREMENT_RETRY_ATTEMPT', fileIndex)
+                        
+                        setTimeout(() => {
+                            dispatch('uploadFiles', { form, fileSize, totalUploadedSize, fileIndex })
+                        }, backoffDelay)
+                        
+                        return
+                    }
+                    
                     try {
                       let title = '';
                       let message = '';
@@ -348,7 +387,6 @@ const actions = {
                                 message = i18n.t('popup_payload_error.message');
                                 break;
                             case 401:
-                                //title = i18n.t('popup_unauthorized.title');
                                 title = i18n.t('popup_exceed_limit.title');
                                 message = i18n.t('popup_exceed_limit.message');
                                 break;
@@ -369,13 +407,14 @@ const actions = {
                             });
                         }
 
+                        // Mark file as failed
+                        commit('MARK_FILE_FAILED', fileIndex)
+
                         // Skip processing the current file with an error and move to the next file
                         commit('SHIFT_FROM_FILE_QUEUE');
 
-                        // Start uploading the next file if the file queue is not empty
-                        if (getters.fileQueue.length) {
-                            Vue.prototype.$handleUploading(getters.fileQueue[0]);
-                        }
+                        // Process next uploads in queue
+                        dispatch('processUploadQueue')
             
                     } catch (error) {
                       console.error(error);
@@ -527,26 +566,119 @@ const actions = {
             message: i18n.t('toaster.successfully_cleared'),
         })
     },
-    pushFileToTheUploadQueue: ({commit, getters}, item) => {
+    pushFileToTheUploadQueue: ({commit, getters, dispatch}, item) => {
         // Prevent to upload file with 0kb file size
         if (item.file.size === 0) {
             events.$emit('toaster', {
                 type: 'danger',
                 message: `${i18n.t('file_0kb.first')} ${item.file.name} ${i18n.t('file_0kb.second')}`,
             });
+            return
         }
 
         if (item.file.size !== 0 && item.file.name !== '.DS_Store') {
+            // Enhance file object with upload state
+            const enhancedItem = {
+                ...item,
+                id: `${item.file.name}_${Date.now()}`,
+                paused: false,
+                completed: false,
+                error: null,
+                progress: 0,
+                speed: 0,
+                timeRemaining: null,
+            }
+
             // commit file to the upload queue
-            commit('ADD_FILES_TO_QUEUE', item)
+            commit('ADD_FILES_TO_QUEUE', enhancedItem)
 
             // Start uploading if uploading process isn't running
             if (getters.filesInQueueTotal === 0) {
-                Vue.prototype.$handleUploading(getters.fileQueue[0])
+                dispatch('processUploadQueue')
             }
 
             // Increase total files in upload bar
             commit('INCREASE_FILES_IN_QUEUES_TOTAL')
+        }
+    },
+    processUploadQueue: ({ commit, getters, dispatch }) => {
+        const { fileQueue, activeUploads, maxSimultaneousUploads, pausedUploads } = getters
+        
+        // Find files that can be uploaded
+        const availableSlots = maxSimultaneousUploads - activeUploads.size
+        const pendingFiles = fileQueue.filter((file, index) => 
+            !file.completed && 
+            !file.error && 
+            !pausedUploads.has(file.id) &&
+            !activeUploads.has(index)
+        )
+
+        // Start uploads for available slots
+        for (let i = 0; i < Math.min(availableSlots, pendingFiles.length); i++) {
+            const file = pendingFiles[i]
+            const fileIndex = fileQueue.indexOf(file)
+            
+            if (fileIndex !== -1) {
+                Vue.prototype.$handleUploading(file, fileIndex)
+            }
+        }
+    },
+    pauseFileUpload: ({ commit }, fileId) => {
+        commit('PAUSE_UPLOAD', fileId)
+        events.$emit('toaster', {
+            type: 'info',
+            message: i18n.t('upload_paused'),
+        })
+    },
+    resumeFileUpload: ({ commit, dispatch }, fileId) => {
+        commit('RESUME_UPLOAD', fileId)
+        dispatch('processUploadQueue')
+        events.$emit('toaster', {
+            type: 'info', 
+            message: i18n.t('upload_resumed'),
+        })
+    },
+    pauseAllUploads: ({ commit, getters }) => {
+        getters.fileQueue.forEach(file => {
+            if (!file.completed && !file.error) {
+                commit('PAUSE_UPLOAD', file.id)
+            }
+        })
+        events.$emit('toaster', {
+            type: 'info',
+            message: i18n.t('all_uploads_paused'),
+        })
+    },
+    resumeAllUploads: ({ commit, dispatch, getters }) => {
+        getters.fileQueue.forEach(file => {
+            if (file.paused) {
+                commit('RESUME_UPLOAD', file.id)
+            }
+        })
+        dispatch('processUploadQueue')
+        events.$emit('toaster', {
+            type: 'info',
+            message: i18n.t('all_uploads_resumed'),
+        })
+    },
+    cancelAllUploads: ({ commit, getters }) => {
+        // Cancel all active uploads
+        getters.activeUploads.forEach((source) => {
+            source.cancel('Upload cancelled by user')
+        })
+        
+        commit('CLEAR_UPLOAD_PROGRESS')
+        events.$emit('toaster', {
+            type: 'danger',
+            message: i18n.t('all_uploads_cancelled'),
+        })
+    },
+    retryFailedUpload: ({ commit, dispatch, getters }, fileIndex) => {
+        const file = getters.fileQueue[fileIndex]
+        if (file && file.error) {
+            commit('RESET_FILE_STATE', fileIndex)
+            commit('RESET_RETRY_ATTEMPT', fileIndex)
+            dispatch('processUploadQueue')
         }
     }
 }
@@ -564,6 +696,27 @@ const mutations = {
     SHIFT_FROM_FILE_QUEUE(state) {
         state.fileQueue.shift()
     },
+    REMOVE_FILE_FROM_QUEUE(state, index) {
+        if (index >= 0 && index < state.fileQueue.length) {
+            const file = state.fileQueue[index]
+            // Cancel active upload if exists
+            if (state.activeUploads.has(index)) {
+                const source = state.activeUploads.get(index)
+                source.cancel('Upload cancelled by user')
+                state.activeUploads.delete(index)
+            }
+            
+            state.fileQueue.splice(index, 1)
+            state.retryAttempts.delete(index)
+            state.pausedUploads.delete(file.id)
+        }
+    },
+    MOVE_FILE_IN_QUEUE(state, { from, to }) {
+        if (from >= 0 && from < state.fileQueue.length && to >= 0 && to < state.fileQueue.length) {
+            const file = state.fileQueue.splice(from, 1)[0]
+            state.fileQueue.splice(to, 0, file)
+        }
+    },
     PROCESSING_FILE(state, status) {
         state.isProcessingFile = status
     },
@@ -580,6 +733,73 @@ const mutations = {
         state.filesInQueueUploaded = 0
         state.filesInQueueTotal = 0
         state.fileQueue = []
+        state.activeUploads.clear()
+        state.retryAttempts.clear()
+        state.pausedUploads.clear()
+        state.uploadStats = {
+            speed: 0,
+            timeRemaining: 0,
+            startTime: null,
+        }
+    },
+    CLEAR_COMPLETED_UPLOADS(state) {
+        state.fileQueue = state.fileQueue.filter(file => !file.completed)
+        state.filesInQueueUploaded = 0
+    },
+    // Enhanced upload management mutations
+    SET_ACTIVE_UPLOAD(state, { fileIndex, source }) {
+        state.activeUploads.set(fileIndex, source)
+    },
+    REMOVE_ACTIVE_UPLOAD(state, fileIndex) {
+        state.activeUploads.delete(fileIndex)
+    },
+    MARK_FILE_COMPLETED(state, fileIndex) {
+        if (state.fileQueue[fileIndex]) {
+            Vue.set(state.fileQueue[fileIndex], 'completed', true)
+            Vue.set(state.fileQueue[fileIndex], 'progress', 100)
+        }
+    },
+    MARK_FILE_FAILED(state, fileIndex) {
+        if (state.fileQueue[fileIndex]) {
+            Vue.set(state.fileQueue[fileIndex], 'error', true)
+            Vue.set(state.fileQueue[fileIndex], 'progress', 0)
+        }
+    },
+    RESET_FILE_STATE(state, fileIndex) {
+        if (state.fileQueue[fileIndex]) {
+            Vue.set(state.fileQueue[fileIndex], 'error', null)
+            Vue.set(state.fileQueue[fileIndex], 'completed', false)
+            Vue.set(state.fileQueue[fileIndex], 'progress', 0)
+            Vue.set(state.fileQueue[fileIndex], 'paused', false)
+        }
+    },
+    PAUSE_UPLOAD(state, fileId) {
+        const file = state.fileQueue.find(f => f.id === fileId)
+        if (file) {
+            Vue.set(file, 'paused', true)
+            state.pausedUploads.add(fileId)
+        }
+    },
+    RESUME_UPLOAD(state, fileId) {
+        const file = state.fileQueue.find(f => f.id === fileId)
+        if (file) {
+            Vue.set(file, 'paused', false)
+            state.pausedUploads.delete(fileId)
+        }
+    },
+    UPDATE_UPLOAD_STATS(state, { speed, timeRemaining }) {
+        state.uploadStats.speed = speed
+        state.uploadStats.timeRemaining = timeRemaining
+        if (!state.uploadStats.startTime) {
+            state.uploadStats.startTime = Date.now()
+        }
+    },
+    INCREMENT_RETRY_ATTEMPT(state, fileIndex) {
+        const current = state.retryAttempts.get(fileIndex) || 0
+        state.retryAttempts.set(fileIndex, current + 1)
+    },
+    RESET_RETRY_ATTEMPT(state, fileIndex) {
+        state.retryAttempts.delete(fileIndex)
     },
 }
 
@@ -591,6 +811,15 @@ const getters = {
     isProcessingFile: (state) => state.isProcessingFile,
     processingPopup: (state) => state.processingPopup,
     fileQueue: (state) => state.fileQueue,
+    // Enhanced getters
+    activeUploads: (state) => state.activeUploads,
+    maxSimultaneousUploads: (state) => state.maxSimultaneousUploads,
+    uploadStats: (state) => state.uploadStats,
+    retryAttempts: (state) => state.retryAttempts,
+    pausedUploads: (state) => state.pausedUploads,
+    hasActiveUploads: (state) => state.activeUploads.size > 0,
+    hasCompletedUploads: (state) => state.fileQueue.some(file => file.completed),
+    allUploadsPaused: (state) => state.fileQueue.length > 0 && state.fileQueue.every(file => file.paused || file.completed),
 }
 
 export default {

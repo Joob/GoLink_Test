@@ -650,7 +650,23 @@ const FunctionHelpers = {
         }
 
         Vue.prototype.$openSubscribeOptions = function () {
-            events.$emit('popup:open', { name: 'select-plan-subscription' })
+            // Check if subscription plans are already loaded in the store or cache
+            // If not, ensure they are loaded before opening the popup
+            axios.get('/api/subscriptions/plans')
+                .then((response) => {
+                    // Plans loaded successfully, now open the popup
+                    events.$emit('popup:open', { 
+                        name: 'select-plan-subscription',
+                        plans: response.data 
+                    })
+                })
+                .catch((error) => {
+                    // Handle error case - show error message instead of broken popup
+                    events.$emit('alert:open', {
+                        title: this.$t('popup_error.title'),
+                        message: this.$t('popup_error.message'),
+                    })
+                })
         }
 
         Vue.prototype.$changeSubscriptionOptions = function () {

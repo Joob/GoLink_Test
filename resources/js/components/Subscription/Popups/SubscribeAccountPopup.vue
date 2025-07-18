@@ -79,7 +79,13 @@
 
         <!--Select Payment Plans-->
         <div v-if="!isPaymentOptionPage">
-            <PopupContent v-if="plans">
+            <PopupContent v-if="isLoading">
+                <div class="flex justify-center py-6">
+                    <Spinner />
+                </div>
+            </PopupContent>
+            
+            <PopupContent v-else-if="plans">
                 <InfoBox v-if="plans.data.length === 0" class="!mb-0">
                     <p>There isn't any plan yet.</p>
                 </InfoBox>
@@ -107,7 +113,7 @@
                 </ButtonBase>
                 <ButtonBase
                     class="w-full"
-                    v-if="plans && plans.data.length !== 0"
+                    v-if="!isLoading && plans && plans.data.length !== 0"
                     :button-style="buttonStyle"
                     @click.native="isPaymentOptionPage = true"
                     >{{ $t('upgrade_account') }}
@@ -171,7 +177,7 @@ export default {
             )
         },
         yearlyPlans() {
-            return this.plans.data.filter((plan) => plan.data.attributes.interval === 'year')
+            return this.plans && this.plans.data ? this.plans.data.filter((plan) => plan.data.attributes.interval === 'year') : []
         },
     },
     data() {
@@ -286,13 +292,25 @@ export default {
             // todo: temporary reload function
             setTimeout(() => document.location.reload(), 1000)
         },
+        loadPlansData() {
+            if (!this.plans) {
+                this.isLoading = true
+                axios.get('/api/subscriptions/plans')
+                    .then((response) => {
+                        this.plans = response.data
+                        this.isLoading = false
+                    })
+                    .catch((error) => {
+                        this.isLoading = false
+                        events.$emit('alert:open', {
+                            title: this.$t('popup_error.title'),
+                            message: this.$t('popup_error.message'),
+                        })
+                    })
+            }
+        },
     },
     created() {
-        // Load available plans
-        axios.get('/api/subscriptions/plans').then((response) => {
-            this.plans = response.data
-        })
-
         // Reset states on popup close
         events.$on('popup:close', () => {
             this.isSelectedYearlyPlans = false
@@ -300,6 +318,17 @@ export default {
             this.selectedPlan = undefined
             this.paypal.isMethodsLoaded = false
         })
+
+        // Listen for popup open with pre-loaded plans data
+        events.$on('popup:open', (data) => {
+            if (data.name === 'select-plan-subscription' && data.plans) {
+                this.plans = data.plans
+                this.isLoading = false
+            }
+        })
+
+        // Fallback: Load available plans if not provided
+        this.loadPlansData()
     },
 }
 </script>

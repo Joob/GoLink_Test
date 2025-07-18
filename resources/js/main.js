@@ -118,4 +118,59 @@ let vueFileManager = new Vue({
         config,
     },
     render: (h) => h(App),
+    mounted() {
+        // Set up upload management event listeners
+        this.setupUploadEventListeners()
+    },
+    methods: {
+        setupUploadEventListeners() {
+            // Listen for upload cancellation
+            events.$on('cancel-upload', () => {
+                store.dispatch('cancelAllUploads')
+            })
+
+            // Listen for pause/resume events
+            events.$on('pause-all-uploads', () => {
+                store.dispatch('pauseAllUploads')
+            })
+
+            events.$on('resume-all-uploads', () => {
+                store.dispatch('resumeAllUploads')
+            })
+
+            events.$on('pause-file-upload', (file) => {
+                store.dispatch('pauseFileUpload', file.id)
+            })
+
+            events.$on('resume-file-upload', (file) => {
+                store.dispatch('resumeFileUpload', file.id)
+            })
+
+            events.$on('retry-file-upload', (file) => {
+                const fileIndex = store.getters.fileQueue.indexOf(file)
+                if (fileIndex !== -1) {
+                    store.dispatch('retryFailedUpload', fileIndex)
+                }
+            })
+
+            // Legacy event handlers for compatibility
+            events.$on('toggle-file-upload', (file) => {
+                if (file.paused) {
+                    events.$emit('resume-file-upload', file)
+                } else {
+                    events.$emit('pause-file-upload', file)
+                }
+            })
+        }
+    },
+    beforeDestroy() {
+        // Clean up event listeners
+        events.$off('cancel-upload')
+        events.$off('pause-all-uploads')
+        events.$off('resume-all-uploads')
+        events.$off('pause-file-upload')
+        events.$off('resume-file-upload')
+        events.$off('retry-file-upload')
+        events.$off('toggle-file-upload')
+    }
 }).$mount('#app')

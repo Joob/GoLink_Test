@@ -1,5 +1,13 @@
 const routesOthers = [
     {
+        name: 'UploadDemo',
+        path: '/upload-demo',
+        component: () => import(/* webpackChunkName: "chunks/upload-demo" */ '../views/UploadDemo'),
+        meta: {
+            requiresAuth: false,
+        },
+    },
+    {
         name: 'NotFound',
         path: '*',
         component: () => import(/* webpackChunkName: "chunks/not-found" */ '../views/NotFound'),

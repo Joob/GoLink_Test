@@ -112,13 +112,6 @@ export default {
         return {
             isLoading: false
         }
-    },
-    created() {
-        // Exemplo de loading ao iniciar o componente
-        this.isLoading = true
-        setTimeout(() => {
-            this.isLoading = false
-        }, 700)
     }
 }
 </script>

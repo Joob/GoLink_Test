@@ -14,7 +14,8 @@
 
 		<div :class="{'lg:flex': isSidebarNavigation}">
 			<SidebarNavigation v-if="isSidebarNavigation" />
-			<router-view v-if="isLoaded" />
+			<!-- Adicione a key aqui para forçar re-renderização -->
+			<router-view v-if="isLoaded" :key="routeKey" />
 		</div>
 
         <!--Background under popups-->
@@ -54,12 +55,18 @@ export default {
     },
     computed: {
         ...mapGetters(['config', 'user']),
+		// Adicione este computed para gerar uma key única
+		routeKey() {
+			// Usa o fullPath para garantir que cada rota tenha uma key única
+			// Adiciona timestamp para garantir re-renderização completa
+			return `${this.$route.fullPath}-${Date.now()}`
+		}
     },
     watch: {
         'config.defaultThemeMode': function () {
             this.handleDarkMode()
         },
-		'$route' () {
+		'$route' (to, from) {
 			let section = this.$router.currentRoute.fullPath.split('/')[1]
 			const app = document.getElementsByTagName('body')[0]
 
@@ -72,6 +79,18 @@ export default {
 
 			// Set sidebar navigation visibility
 			this.isSidebarNavigation = ['admin', 'user', 'platform'].includes(section)
+			
+			// Força atualização do DOM quando muda entre seções diferentes
+			const fromSection = from.fullPath.split('/')[1]
+			const toSection = to.fullPath.split('/')[1]
+			
+			if (fromSection !== toSection) {
+				// Força um ciclo de re-renderização
+				this.$nextTick(() => {
+					// Emite evento para componentes filhos se necessário
+					events.$emit('route:section:changed', { from: fromSection, to: toSection })
+				})
+			}
 		}
     },
     methods: {

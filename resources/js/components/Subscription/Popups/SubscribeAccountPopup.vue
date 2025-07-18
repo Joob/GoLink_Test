@@ -293,22 +293,35 @@ export default {
             setTimeout(() => document.location.reload(), 1000)
         },
         loadPlansData() {
-            if (!this.plans) {
-                this.isLoading = true
-                axios.get('/api/subscriptions/plans')
-                    .then((response) => {
-                        this.plans = response.data
-                        this.isLoading = false
-                    })
-                    .catch((error) => {
-                        this.isLoading = false
+            // Always load fresh data when this method is called
+            this.isLoading = true
+            this.plans = undefined
+            
+            axios.get('/api/subscriptions/plans')
+                .then((response) => {
+                    this.plans = response.data
+                    this.isLoading = false
+                })
+                .catch((error) => {
+                    this.isLoading = false
+                    this.$closePopup()
+                    
+                    // Show error message after popup closes
+                    setTimeout(() => {
                         events.$emit('alert:open', {
                             title: this.$t('popup_error.title'),
                             message: this.$t('popup_error.message'),
                         })
-                    })
-            }
+                    }, 100)
+                })
         },
+    },
+    mounted() {
+        // If the popup is already supposed to be open, load the data
+        // This handles the case where the component mounts after the popup:open event
+        if (this.$parent && this.$parent.isVisible) {
+            this.loadPlansData()
+        }
     },
     created() {
         // Reset states on popup close
@@ -319,16 +332,13 @@ export default {
             this.paypal.isMethodsLoaded = false
         })
 
-        // Listen for popup open with pre-loaded plans data
+        // Listen for popup open event to load plans data
         events.$on('popup:open', (data) => {
-            if (data.name === 'select-plan-subscription' && data.plans) {
-                this.plans = data.plans
-                this.isLoading = false
+            if (data.name === 'select-plan-subscription') {
+                // Ensure we have fresh data when popup opens
+                this.loadPlansData()
             }
         })
-
-        // Fallback: Load available plans if not provided
-        this.loadPlansData()
     },
 }
 </script>

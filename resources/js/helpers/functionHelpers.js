@@ -215,7 +215,12 @@ const FunctionHelpers = {
             })
         }
 
-        Vue.prototype.$handleUploading = async function (item) {
+        Vue.prototype.$handleUploading = async function (item, fileIndex = 0) {
+            // Check if upload is paused
+            if (store.getters.pausedUploads.has(item.id)) {
+                return
+            }
+
             // Create ceil
             let size = store.getters.config.chunkSize,
                 chunksCeil = Math.ceil(item.file.size / size),
@@ -242,6 +247,11 @@ const FunctionHelpers = {
                     '.part'
 
             do {
+                // Check if upload is paused before each chunk
+                if (store.getters.pausedUploads.has(item.id)) {
+                    return
+                }
+
                 let isLastChunk = chunks.length === 1 ? 1 : 0,
                     chunk = chunks.shift(),
                     attempts = 0
@@ -258,13 +268,14 @@ const FunctionHelpers = {
                 if (item.parent_id)
                     formData.set('parent_id', item.parent_id)
 
-                // Upload chunks
+                // Upload chunks with enhanced error handling
                 do {
                     await store
                         .dispatch('uploadFiles', {
                             form: formData,
                             fileSize: item.file.size,
                             totalUploadedSize: uploadedSize,
+                            fileIndex: fileIndex,
                         })
                         .then(() => {
                             uploadedSize = uploadedSize + chunk.size
@@ -273,27 +284,17 @@ const FunctionHelpers = {
                             // Count attempts
                             attempts++
 
-                            // Show Error
-                            //if (attempts === 3)
-
-                            // Break uploading process
-                            if ([500, 422].includes(error.response.status)) {
+                            // Break uploading process for certain errors
+                            if ([500, 422].includes(error.response?.status)) {
                                 isNotGeneralError = false
-                                //this.$isSomethingWrong()
                             }
 
-                            // Show Error
-                            if (attempts === 1)
-                                //this.$isSomethingWrong()
+                            // Break after max attempts
+                            if (attempts === 3) {
                                 store.commit('PROCESSING_FILE', false)
-                                store.commit('CLEAR_UPLOAD_PROGRESS')
-
-                            // Break uploading process
-                           /* if ([500, 415].includes(error.response.status))
-                                isNotGeneralError = false*/
-
-                            //store.commit('PROCESSING_FILE', false)
-                            //store.commit('CLEAR_UPLOAD_PROGRESS')
+                                store.commit('MARK_FILE_FAILED', fileIndex)
+                                isNotGeneralError = false
+                            }
                         })
                 } while (isNotGeneralError && attempts !== 0 && attempts !== 3)
             } while (isNotGeneralError && chunks.length !== 0)

@@ -755,35 +755,35 @@ const mutations = {
     },
     MARK_FILE_COMPLETED(state, fileIndex) {
         if (state.fileQueue[fileIndex]) {
-            Vue.set(state.fileQueue[fileIndex], 'completed', true)
-            Vue.set(state.fileQueue[fileIndex], 'progress', 100)
+            state.fileQueue[fileIndex].completed = true
+            state.fileQueue[fileIndex].progress = 100
         }
     },
     MARK_FILE_FAILED(state, fileIndex) {
         if (state.fileQueue[fileIndex]) {
-            Vue.set(state.fileQueue[fileIndex], 'error', true)
-            Vue.set(state.fileQueue[fileIndex], 'progress', 0)
+            state.fileQueue[fileIndex].error = true
+            state.fileQueue[fileIndex].progress = 0
         }
     },
     RESET_FILE_STATE(state, fileIndex) {
         if (state.fileQueue[fileIndex]) {
-            Vue.set(state.fileQueue[fileIndex], 'error', null)
-            Vue.set(state.fileQueue[fileIndex], 'completed', false)
-            Vue.set(state.fileQueue[fileIndex], 'progress', 0)
-            Vue.set(state.fileQueue[fileIndex], 'paused', false)
+            state.fileQueue[fileIndex].error = null
+            state.fileQueue[fileIndex].completed = false
+            state.fileQueue[fileIndex].progress = 0
+            state.fileQueue[fileIndex].paused = false
         }
     },
     PAUSE_UPLOAD(state, fileId) {
         const file = state.fileQueue.find(f => f.id === fileId)
         if (file) {
-            Vue.set(file, 'paused', true)
+            file.paused = true
             state.pausedUploads.add(fileId)
         }
     },
     RESUME_UPLOAD(state, fileId) {
         const file = state.fileQueue.find(f => f.id === fileId)
         if (file) {
-            Vue.set(file, 'paused', false)
+            file.paused = false
             state.pausedUploads.delete(fileId)
         }
     },

@@ -70,7 +70,7 @@ import {
     VideoIcon, 
     MusicIcon, 
     FileTextIcon,
-    ArchiveIcon,
+    DownloadIcon,
     XIcon,
     CheckIcon
 } from 'vue-feather-icons'
@@ -84,7 +84,7 @@ export default {
         VideoIcon,
         MusicIcon,
         FileTextIcon,
-        ArchiveIcon,
+        DownloadIcon,
         XIcon,
         CheckIcon
     },
@@ -137,7 +137,7 @@ export default {
             if (type.startsWith('video/')) return 'VideoIcon'
             if (type.startsWith('audio/')) return 'MusicIcon'
             if (type.includes('text') || type.includes('document')) return 'FileTextIcon'
-            if (type.includes('zip') || type.includes('archive')) return 'ArchiveIcon'
+            if (type.includes('zip') || type.includes('archive')) return 'DownloadIcon'
             
             return 'FileIcon'
         },

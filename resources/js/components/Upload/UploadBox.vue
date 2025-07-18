@@ -47,17 +47,17 @@
                         
                         <!-- Status Icon -->
                         <div class="flex-shrink-0">
-                            <CheckCircleIcon 
+                            <CheckIcon 
                                 v-if="allCompleted" 
                                 size="16" 
                                 class="text-green-500"
                             />
-                            <AlertCircleIcon 
+                            <AlertTriangleIcon 
                                 v-else-if="hasErrors" 
                                 size="16" 
                                 class="text-red-500"
                             />
-                            <RotateCwIcon 
+                            <RefreshCwIcon 
                                 v-else-if="hasActiveUploads" 
                                 size="16" 
                                 class="text-blue-500 animate-spin"
@@ -223,9 +223,9 @@ import {
     XIcon, 
     ChevronUpIcon, 
     ChevronDownIcon,
-    CheckCircleIcon,
-    AlertCircleIcon,
-    RotateCwIcon
+    CheckIcon,
+    AlertTriangleIcon,
+    RefreshCwIcon
 } from 'vue-feather-icons'
 import { mapGetters } from 'vuex'
 
@@ -238,9 +238,9 @@ export default {
         XIcon,
         ChevronUpIcon,
         ChevronDownIcon,
-        CheckCircleIcon,
-        AlertCircleIcon,
-        RotateCwIcon
+        CheckIcon,
+        AlertTriangleIcon,
+        RefreshCwIcon
     },
     props: {
         files: {

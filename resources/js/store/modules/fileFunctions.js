@@ -606,6 +606,17 @@ const actions = {
         if (item.file.size !== 0 && item.file.name !== '.DS_Store') {
             // commit file to the upload queue
             commit('ADD_FILES_TO_QUEUE', item)
+            
+            // Add to enhanced tracking
+            commit('ADD_ACTIVE_UPLOAD', {
+                file: item.file,
+                id: Date.now() + Math.random(),
+                parentId: item.parent_id,
+                path: item.path
+            })
+            
+            // Emit upload started event
+            events.$emit('upload:started', item)
 
             // Start uploading if uploading process isn't running
             if (getters.filesInQueueTotal === 0) {

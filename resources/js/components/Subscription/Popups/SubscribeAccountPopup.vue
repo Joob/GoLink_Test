@@ -163,6 +163,7 @@ export default {
         '$parent.isVisibleWrapper'(newVal) {
             // When popup becomes visible, load the plans data
             if (newVal && this.$parent.name === 'select-plan-subscription') {
+                console.log('Subscription popup opened, loading plans data...')
                 this.loadPlansData()
             }
         },
@@ -309,6 +310,7 @@ export default {
                     this.isLoading = false
                 })
                 .catch((error) => {
+                    console.error('Failed to load subscription plans:', error)
                     this.isLoading = false
                     this.$closePopup()
                     

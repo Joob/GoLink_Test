@@ -14,10 +14,10 @@
         </div>
 
         <PopupActions>
-            <ButtonBase @click.native="closePopup" button-style="secondary" class="w-full"
+            <ButtonBase @click="closePopup" button-style="secondary" class="w-full"
                 >{{ $t('cancel') }}
             </ButtonBase>
-            <ButtonBase @click.native="confirm" :button-style="buttonColor" class="w-full"
+            <ButtonBase @click="confirm" :button-style="buttonColor" class="w-full"
                 >{{ $t('yes_iam_sure') }}
             </ButtonBase>
         </PopupActions>

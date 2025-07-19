@@ -34,12 +34,12 @@
         </PopupContent>
 
         <PopupActions v-if="!token">
-            <ButtonBase class="w-full" @click.native="$closePopup()" button-style="secondary">
+            <ButtonBase class="w-full" @click="$closePopup()" button-style="secondary">
                 {{ $t('cancel') }}
             </ButtonBase>
             <ButtonBase
                 class="w-full"
-                @click.native="createTokenForm"
+                @click="createTokenForm"
                 button-style="theme"
                 :loading="isLoading"
                 :disabled="isLoading"
@@ -49,7 +49,7 @@
         </PopupActions>
 
         <PopupActions v-if="token">
-            <ButtonBase class="w-full" @click.native="$closePopup" button-style="theme">
+            <ButtonBase class="w-full" @click="$closePopup" button-style="theme">
                 {{ $t('awesome_iam_done') }}
             </ButtonBase>
         </PopupActions>

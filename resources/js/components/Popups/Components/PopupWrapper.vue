@@ -26,7 +26,11 @@ export default {
         }
     },
     methods: {
-        closePopup() {
+        closePopup(event) {
+            // Only close if clicking directly on the wrapper, not on child elements
+            if (event && event.target !== event.currentTarget) {
+                return
+            }
             events.$emit('popup:close')
         },
     },

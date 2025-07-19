@@ -13,10 +13,10 @@
             </PopupContent>
 
             <PopupActions>
-                <ButtonBase class="w-full" @click.native="showSection(undefined)" button-style="secondary">
+                <ButtonBase class="w-full" @click="showSection(undefined)" button-style="secondary">
                     {{ $t('show_details') }}
                 </ButtonBase>
-                <ButtonBase class="w-full" @click.native="$closePopup()" button-style="theme">
+                <ButtonBase class="w-full" @click="$closePopup()" button-style="theme">
                     {{ $t('awesome_iam_done') }}
                 </ButtonBase>
             </PopupActions>
@@ -43,12 +43,12 @@
             </PopupContent>
 
             <PopupActions>
-                <ButtonBase class="w-full" @click.native="showSection(undefined)" button-style="secondary">
+                <ButtonBase class="w-full" @click="showSection(undefined)" button-style="secondary">
                     {{ $t('show_details') }}
                 </ButtonBase>
                 <ButtonBase
                     class="w-full"
-                    @click.native="sendViaEmail"
+                    @click="sendViaEmail"
                     button-style="theme"
                     :loading="isLoading"
                     :disabled="isLoading"
@@ -109,7 +109,7 @@
                                 canChangePassword &&
                                 shareOptions.isProtected
                             "
-                            @click.native="changePassword"
+                            @click="changePassword"
                             class="mb-6 -mt-4"
                         >
                             {{ $t('popup_share_edit.change_pass') }}
@@ -209,7 +209,7 @@
             <PopupActions>
                 <ButtonBase
                     class="w-full"
-                    @click.native="destroySharing"
+                    @click="destroySharing"
                     :button-style="destroyButtonStyle"
                     :loading="isDeleting"
                     :disabled="isDeleting"
@@ -218,7 +218,7 @@
                 </ButtonBase>
                 <ButtonBase
                     class="w-full"
-                    @click.native="updateShareOptions"
+                    @click="updateShareOptions"
                     button-style="theme"
                     :loading="isLoading"
                     :disabled="isLoading"

@@ -26,10 +26,10 @@
         </PopupContent>
 
         <PopupActions>
-            <ButtonBase class="w-full" @click.native="$closePopup()" button-style="secondary">
+            <ButtonBase class="w-full" @click="$closePopup()" button-style="secondary">
                 {{ $t('cancel') }}
             </ButtonBase>
-            <ButtonBase class="w-full" @click.native="upload" button-style="theme" :loading="loading">
+            <ButtonBase class="w-full" @click="upload" button-style="theme" :loading="loading">
                 {{ $t('upload') }}
             </ButtonBase>
         </PopupActions>

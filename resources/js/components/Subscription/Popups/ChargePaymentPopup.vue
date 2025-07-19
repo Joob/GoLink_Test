@@ -55,7 +55,7 @@
         </PopupContent>
 
         <PopupActions>
-            <ButtonBase class="w-full" @click.native="$closePopup()" button-style="secondary">
+            <ButtonBase class="w-full" @click="$closePopup()" button-style="secondary">
                 {{ $t('cancel_payment') }}
             </ButtonBase>
         </PopupActions>

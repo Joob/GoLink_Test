@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Upload System Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            transition: border-color 0.3s;
+        }
+        .upload-area.drag-over {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+        .upload-info {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #007bff;
+            transition: width 0.3s ease;
+        }
+        .file-list {
+            margin: 20px 0;
+        }
+        .file-item {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px 0;
+            background-color: #f8f9fa;
+        }
+        .btn {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Enhanced File Upload System Test</h1>
+    
+    <div class="upload-info">
+        <h3>Upload Strategy:</h3>
+        <ul>
+            <li><strong>Small files (&lt; 5MB):</strong> Direct upload for faster processing</li>
+            <li><strong>Large files (≥ 5MB):</strong> Chunked upload with progress tracking and retry capability</li>
+            <li><strong>Features:</strong> Progress tracking, pause/resume, cancellation, retry on failure</li>
+        </ul>
+    </div>
+
+    <div class="upload-area" id="uploadArea">
+        <h3>Drop files here or click to browse</h3>
+        <p>Supports multiple files and various file types</p>
+        <input type="file" id="fileInput" multiple style="display: none;">
+    </div>
+
+    <div id="fileList" class="file-list"></div>
+    
+    <div id="overallProgress" style="display: none;">
+        <h4>Overall Progress</h4>
+        <div class="progress-bar">
+            <div class="progress-fill" id="overallProgressBar"></div>
+        </div>
+        <div id="overallStats"></div>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-primary" id="startUpload" style="display: none;">Start Upload</button>
+        <button class="btn btn-secondary" id="pauseUpload" style="display: none;">Pause</button>
+        <button class="btn btn-secondary" id="resumeUpload" style="display: none;">Resume</button>
+        <button class="btn btn-danger" id="cancelUpload" style="display: none;">Cancel All</button>
+        <button class="btn btn-secondary" id="clearCompleted" style="display: none;">Clear Completed</button>
+    </div>
+
+    <div id="statusArea"></div>
+
+    <script>
+        // Mock implementation to demonstrate the enhanced upload system structure
+        class MockUploadSystem {
+            constructor() {
+                this.uploadQueue = [];
+                this.isUploading = false;
+                this.isPaused = false;
+                this.currentUploadIndex = 0;
+                this.SMALL_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB
+                
+                this.initializeEventListeners();
+            }
+
+            initializeEventListeners() {
+                const uploadArea = document.getElementById('uploadArea');
+                const fileInput = document.getElementById('fileInput');
+
+                // Upload area click
+                uploadArea.addEventListener('click', () => fileInput.click());
+
+                // File input change
+                fileInput.addEventListener('change', (e) => {
+                    this.handleFileSelection(Array.from(e.target.files));
+                    e.target.value = '';
+                });
+
+                // Drag and drop
+                uploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.add('drag-over');
+                });
+
+                uploadArea.addEventListener('dragleave', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.remove('drag-over');
+                });
+
+                uploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.remove('drag-over');
+                    this.handleFileSelection(Array.from(e.dataTransfer.files));
+                });
+
+                // Control buttons
+                document.getElementById('startUpload').addEventListener('click', () => this.startUpload());
+                document.getElementById('pauseUpload').addEventListener('click', () => this.pauseUpload());
+                document.getElementById('resumeUpload').addEventListener('click', () => this.resumeUpload());
+                document.getElementById('cancelUpload').addEventListener('click', () => this.cancelUpload());
+                document.getElementById('clearCompleted').addEventListener('click', () => this.clearCompleted());
+            }
+
+            handleFileSelection(files) {
+                files.forEach(file => {
+                    if (this.validateFile(file)) {
+                        this.addFileToQueue(file);
+                    }
+                });
+                this.updateUI();
+            }
+
+            validateFile(file) {
+                if (file.size === 0) {
+                    this.showStatus(`File "${file.name}" is empty and cannot be uploaded.`, 'error');
+                    return false;
+                }
+                return true;
+            }
+
+            addFileToQueue(file) {
+                const fileData = {
+                    file,
+                    status: 'queued',
+                    progress: 0,
+                    uploadedBytes: 0,
+                    totalBytes: file.size,
+                    speed: 0,
+                    timeRemaining: null,
+                    uploadStrategy: this.shouldUseChunkedUpload(file.size) ? 'chunked' : 'direct',
+                    retryCount: 0
+                };
+                
+                this.uploadQueue.push(fileData);
+                this.showStatus(`Added "${file.name}" to upload queue (${fileData.uploadStrategy} upload)`, 'info');
+            }
+
+            shouldUseChunkedUpload(fileSize) {
+                return fileSize > this.SMALL_FILE_THRESHOLD;
+            }
+
+            startUpload() {
+                if (this.isUploading) return;
+                
+                this.isUploading = true;
+                this.isPaused = false;
+                this.currentUploadIndex = 0;
+                
+                this.showStatus('Upload started', 'info');
+                this.uploadNextFile();
+                this.updateUI();
+            }
+
+            uploadNextFile() {
+                const nextIndex = this.uploadQueue.findIndex(file => file.status === 'queued');
+                
+                if (nextIndex === -1) {
+                    this.isUploading = false;
+                    this.showStatus('All uploads completed!', 'success');
+                    this.updateUI();
+                    return;
+                }
+                
+                this.currentUploadIndex = nextIndex;
+                const fileData = this.uploadQueue[nextIndex];
+                
+                fileData.status = 'uploading';
+                fileData.startTime = Date.now();
+                
+                this.simulateUpload(fileData, nextIndex);
+            }
+
+            simulateUpload(fileData, index) {
+                const uploadDuration = fileData.uploadStrategy === 'direct' ? 2000 : 5000; // Simulate different upload times
+                const updateInterval = 100;
+                let elapsed = 0;
+
+                const updateProgress = () => {
+                    elapsed += updateInterval;
+                    const progress = Math.min((elapsed / uploadDuration) * 100, 100);
+                    
+                    fileData.progress = progress;
+                    fileData.uploadedBytes = (progress / 100) * fileData.totalBytes;
+                    
+                    // Calculate speed and time remaining
+                    const elapsedTime = (Date.now() - fileData.startTime) / 1000;
+                    fileData.speed = elapsedTime > 0 ? fileData.uploadedBytes / elapsedTime : 0;
+                    
+                    if (fileData.speed > 0) {
+                        const remainingBytes = fileData.totalBytes - fileData.uploadedBytes;
+                        const remainingSeconds = remainingBytes / fileData.speed;
+                        fileData.timeRemaining = this.formatDuration(remainingSeconds);
+                    }
+
+                    this.updateUI();
+
+                    if (progress >= 100) {
+                        fileData.status = 'completed';
+                        this.showStatus(`"${fileData.file.name}" uploaded successfully`, 'success');
+                        setTimeout(() => this.uploadNextFile(), 500);
+                    } else if (!this.isPaused && this.isUploading) {
+                        setTimeout(updateProgress, updateInterval);
+                    }
+                };
+
+                updateProgress();
+            }
+
+            pauseUpload() {
+                this.isPaused = true;
+                this.showStatus('Upload paused', 'info');
+                this.updateUI();
+            }
+
+            resumeUpload() {
+                this.isPaused = false;
+                this.showStatus('Upload resumed', 'info');
+                
+                // Find current uploading file and continue
+                const currentFile = this.uploadQueue.find(file => file.status === 'uploading');
+                if (currentFile) {
+                    this.simulateUpload(currentFile, this.uploadQueue.indexOf(currentFile));
+                }
+                
+                this.updateUI();
+            }
+
+            cancelUpload() {
+                this.isUploading = false;
+                this.isPaused = false;
+                
+                this.uploadQueue.forEach(file => {
+                    if (file.status === 'uploading' || file.status === 'queued') {
+                        file.status = 'cancelled';
+                    }
+                });
+                
+                this.showStatus('All uploads cancelled', 'error');
+                this.updateUI();
+            }
+
+            clearCompleted() {
+                this.uploadQueue = this.uploadQueue.filter(file => file.status !== 'completed');
+                this.updateUI();
+            }
+
+            updateUI() {
+                this.updateFileList();
+                this.updateOverallProgress();
+                this.updateControls();
+            }
+
+            updateFileList() {
+                const fileList = document.getElementById('fileList');
+                fileList.innerHTML = '';
+
+                this.uploadQueue.forEach((fileData, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    
+                    const strategy = fileData.uploadStrategy === 'direct' ? 'Direct' : 'Chunked';
+                    const size = this.formatFileSize(fileData.file.size);
+                    const speed = fileData.speed ? this.formatFileSize(fileData.speed) + '/s' : '';
+                    const timeRemaining = fileData.timeRemaining || '';
+
+                    fileItem.innerHTML = `
+                        <div><strong>${fileData.file.name}</strong> (${size}) - ${strategy} Upload</div>
+                        <div>Status: <strong>${fileData.status}</strong></div>
+                        ${fileData.status === 'uploading' ? `
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${fileData.progress}%"></div>
+                            </div>
+                            <div>Progress: ${Math.round(fileData.progress)}% ${speed} ${timeRemaining}</div>
+                        ` : ''}
+                    `;
+                    
+                    fileList.appendChild(fileItem);
+                });
+            }
+
+            updateOverallProgress() {
+                const overallProgress = document.getElementById('overallProgress');
+                const overallProgressBar = document.getElementById('overallProgressBar');
+                const overallStats = document.getElementById('overallStats');
+
+                if (this.uploadQueue.length === 0) {
+                    overallProgress.style.display = 'none';
+                    return;
+                }
+
+                overallProgress.style.display = 'block';
+
+                const totalFiles = this.uploadQueue.length;
+                const completedFiles = this.uploadQueue.filter(file => file.status === 'completed').length;
+                const totalProgress = this.uploadQueue.reduce((sum, file) => sum + (file.progress || 0), 0) / totalFiles;
+
+                overallProgressBar.style.width = totalProgress + '%';
+                overallStats.innerHTML = `Files: ${completedFiles}/${totalFiles} • Progress: ${Math.round(totalProgress)}%`;
+            }
+
+            updateControls() {
+                const startBtn = document.getElementById('startUpload');
+                const pauseBtn = document.getElementById('pauseUpload');
+                const resumeBtn = document.getElementById('resumeUpload');
+                const cancelBtn = document.getElementById('cancelUpload');
+                const clearBtn = document.getElementById('clearCompleted');
+
+                const hasQueuedFiles = this.uploadQueue.some(file => file.status === 'queued');
+                const hasCompletedFiles = this.uploadQueue.some(file => file.status === 'completed');
+
+                startBtn.style.display = !this.isUploading && hasQueuedFiles ? 'inline-block' : 'none';
+                pauseBtn.style.display = this.isUploading && !this.isPaused ? 'inline-block' : 'none';
+                resumeBtn.style.display = this.isPaused ? 'inline-block' : 'none';
+                cancelBtn.style.display = this.isUploading || hasQueuedFiles ? 'inline-block' : 'none';
+                clearBtn.style.display = hasCompletedFiles ? 'inline-block' : 'none';
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            formatDuration(seconds) {
+                if (seconds < 60) return `${Math.round(seconds)}s`;
+                if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+                return `${Math.round(seconds / 3600)}h`;
+            }
+
+            showStatus(message, type) {
+                const statusArea = document.getElementById('statusArea');
+                const statusDiv = document.createElement('div');
+                statusDiv.className = `status ${type}`;
+                statusDiv.textContent = message;
+                
+                statusArea.appendChild(statusDiv);
+                
+                // Auto-remove after 5 seconds
+                setTimeout(() => {
+                    if (statusDiv.parentNode) {
+                        statusDiv.parentNode.removeChild(statusDiv);
+                    }
+                }, 5000);
+            }
+        }
+
+        // Initialize the mock upload system
+        document.addEventListener('DOMContentLoaded', () => {
+            new MockUploadSystem();
+        });
+    </script>
+</body>
+</html>

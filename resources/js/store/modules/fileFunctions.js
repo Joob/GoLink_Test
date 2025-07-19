@@ -556,15 +556,28 @@ const actions = {
                 type: 'danger',
                 message: `${i18n.t('file_0kb.first')} ${item.file.name} ${i18n.t('file_0kb.second')}`,
             });
+            return;
         }
 
         if (item.file.size !== 0 && item.file.name !== '.DS_Store') {
+            // Enhance item with upload strategy if not provided
+            if (!item.uploadStrategy) {
+                const SMALL_FILE_THRESHOLD = 5 * 1024 * 1024 // 5MB
+                item.uploadStrategy = item.file.size > SMALL_FILE_THRESHOLD ? 'chunked' : 'direct'
+            }
+
+            // Add enhanced metadata
+            item.retryCount = item.retryCount || 0
+            item.sessionId = item.sessionId || null
+            item.startTime = item.startTime || null
+            item.status = 'queued'
+
             // commit file to the upload queue
             commit('ADD_FILES_TO_QUEUE', item)
 
             // Start uploading if uploading process isn't running
             if (getters.filesInQueueTotal === 0) {
-                Vue.prototype.$handleUploading(getters.fileQueue[0])
+                Vue.prototype.$handleEnhancedUploading(getters.fileQueue[0])
             }
 
             // Increase total files in upload bar

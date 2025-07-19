@@ -171,29 +171,8 @@ const FunctionHelpers = {
         }
 
         Vue.prototype.$uploadFiles = async function (files) {
-            // Show alert message when upload is disabled
-            if (store.getters.user && !store.getters.user.data.meta.restrictions.canUpload) {
-                Vue.prototype.$temporarilyDisabledUpload()
-
-                return
-            }
-
-            if (files.length === 0) {
-                return
-            }
-
-            if (!this.$checkFileMimetype(files) || !this.$checkUploadLimit(files)) {
-                return
-            }
-
-            // Push items to file queue
-            [...files].map((item) => {
-                store.dispatch('pushFileToTheUploadQueue', {
-                    parent_id: store.getters.currentFolder ? store.getters.currentFolder.data.id : '',
-                    file: item,
-                    path: '/' + item.webkitRelativePath,
-                })
-            })
+            // Use the enhanced upload functionality
+            return this.$uploadFilesEnhanced(files)
         }
 
         Vue.prototype.$uploadDraggedFolderOrFile = async function (files, parent_id) {
@@ -206,97 +185,27 @@ const FunctionHelpers = {
                     store.commit('UPDATE_UPLOADING_FOLDER_STATE', true)
                 }
                 
-                // Push file to the upload queue
+                // Push file to the upload queue with enhanced metadata
                 store.dispatch('pushFileToTheUploadQueue', {
                     parent_id: parent_id || '',
                     path: filePath,
                     file: file,
+                    uploadStrategy: this.$shouldUseChunkedUpload(file.size) ? 'chunked' : 'direct',
+                    retryCount: 0,
+                    sessionId: null,
+                    startTime: null,
                 })
             })
         }
 
         Vue.prototype.$handleUploading = async function (item) {
-            // Create ceil
-            let size = store.getters.config.chunkSize,
-                chunksCeil = Math.ceil(item.file.size / size),
-                chunks = []
+            // Use enhanced upload handling
+            return this.$handleEnhancedUploading(item)
+        }
 
-            // Create chunks
-            for (let i = 0; i < chunksCeil; i++) {
-                chunks.push(item.file.slice(i * size, Math.min(i * size + size, item.file.size), item.file.type))
-            }
-
-            // Set Data
-            let formData = new FormData(),
-                uploadedSize = 0,
-                isNotGeneralError = true,
-                striped_spaces = item.file.name.replace(/\s/g, '-'),
-                striped_to_safe_characters = striped_spaces.match(/^[A-Za-z0-9._~()'!*:@,;+?-\W]*$/g),
-                source_name =
-                    Array(16)
-                        .fill(0)
-                        .map((x) => Math.random().toString(36).charAt(2))
-                        .join('') +
-                    '-' +
-                    striped_to_safe_characters +
-                    '.part'
-
-            do {
-                let isLastChunk = chunks.length === 1 ? 1 : 0,
-                    chunk = chunks.shift(),
-                    attempts = 0
-
-                // Set form data
-                formData.set('name', item.file.name)
-                formData.set('chunk', chunk, source_name)
-                formData.set('extension', item.file.name.split('.').pop())
-                formData.set('is_last_chunk', isLastChunk)
-
-                if (item.path && item.path !== '/')
-                    formData.set('path', item.path)
-
-                if (item.parent_id)
-                    formData.set('parent_id', item.parent_id)
-
-                // Upload chunks
-                do {
-                    await store
-                        .dispatch('uploadFiles', {
-                            form: formData,
-                            fileSize: item.file.size,
-                            totalUploadedSize: uploadedSize,
-                        })
-                        .then(() => {
-                            uploadedSize = uploadedSize + chunk.size
-                        })
-                        .catch((error) => {
-                            // Count attempts
-                            attempts++
-
-                            // Show Error
-                            //if (attempts === 3)
-
-                            // Break uploading process
-                            if ([500, 422].includes(error.response.status)) {
-                                isNotGeneralError = false
-                                //this.$isSomethingWrong()
-                            }
-
-                            // Show Error
-                            if (attempts === 1)
-                                //this.$isSomethingWrong()
-                                store.commit('PROCESSING_FILE', false)
-                                store.commit('CLEAR_UPLOAD_PROGRESS')
-
-                            // Break uploading process
-                           /* if ([500, 415].includes(error.response.status))
-                                isNotGeneralError = false*/
-
-                            //store.commit('PROCESSING_FILE', false)
-                            //store.commit('CLEAR_UPLOAD_PROGRESS')
-                        })
-                } while (isNotGeneralError && attempts !== 0 && attempts !== 3)
-            } while (isNotGeneralError && chunks.length !== 0)
+        Vue.prototype.$shouldUseChunkedUpload = function (fileSize) {
+            const SMALL_FILE_THRESHOLD = 5 * 1024 * 1024 // 5MB
+            return fileSize > SMALL_FILE_THRESHOLD
         }
 
         Vue.prototype.$downloadFile = function (url, filename) {

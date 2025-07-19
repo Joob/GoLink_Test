@@ -1,4 +1,5 @@
 import store from '../store/index'
+import router from '../router'
 import { events } from '../bus'
 import i18n from '../i18n'
 import axios from 'axios'
@@ -254,57 +255,63 @@ export const UploadFunctions = {
      * Get appropriate upload routes based on current context
      */
     getUploadRoute() {
+        const currentRoute = router.currentRoute;
         const routeMap = {
-            RequestUpload: `/api/file-request/${store.getters.currentRoute.params.token}/upload`,
-            Public: `/api/sharing/upload/${store.getters.currentRoute.params.token}`,
+            RequestUpload: `/api/file-request/${currentRoute.params.token}/upload`,
+            Public: `/api/sharing/upload/${currentRoute.params.token}`,
         }
         
-        return routeMap[store.getters.currentRoute.name] || '/api/upload'
+        return routeMap[currentRoute.name] || '/api/upload'
     },
 
     getChunkedUploadRoute() {
+        const currentRoute = router.currentRoute;
         const routeMap = {
-            RequestUpload: `/api/file-request/${store.getters.currentRoute.params.token}/upload/chunks`,
-            Public: `/api/sharing/upload/chunks/${store.getters.currentRoute.params.token}`,
+            RequestUpload: `/api/file-request/${currentRoute.params.token}/upload/chunks`,
+            Public: `/api/sharing/upload/chunks/${currentRoute.params.token}`,
         }
         
-        return routeMap[store.getters.currentRoute.name] || '/api/upload/chunks'
+        return routeMap[currentRoute.name] || '/api/upload/chunks'
     },
 
     getChunkedUploadInitRoute() {
+        const currentRoute = router.currentRoute;
         const routeMap = {
-            RequestUpload: `/api/file-request/${store.getters.currentRoute.params.token}/upload/init`,
-            Public: `/api/sharing/upload/init/${store.getters.currentRoute.params.token}`,
+            RequestUpload: `/api/file-request/${currentRoute.params.token}/upload/init`,
+            Public: `/api/sharing/upload/init/${currentRoute.params.token}`,
         }
         
-        return routeMap[store.getters.currentRoute.name] || '/api/upload/init'
+        return routeMap[currentRoute.name] || '/api/upload/init'
     },
 
     getChunkedUploadFinalizeRoute() {
+        const currentRoute = router.currentRoute;
         const routeMap = {
-            RequestUpload: `/api/file-request/${store.getters.currentRoute.params.token}/upload/finalize`,
-            Public: `/api/sharing/upload/finalize/${store.getters.currentRoute.params.token}`,
+            RequestUpload: `/api/file-request/${currentRoute.params.token}/upload/finalize`,
+            Public: `/api/sharing/upload/finalize/${currentRoute.params.token}`,
         }
         
-        return routeMap[store.getters.currentRoute.name] || '/api/upload/finalize'
+        return routeMap[currentRoute.name] || '/api/upload/finalize'
     },
 
     getChunkedUploadCleanupRoute() {
+        const currentRoute = router.currentRoute;
         const routeMap = {
-            RequestUpload: `/api/file-request/${store.getters.currentRoute.params.token}/upload/cleanup`,
-            Public: `/api/sharing/upload/cleanup/${store.getters.currentRoute.params.token}`,
+            RequestUpload: `/api/file-request/${currentRoute.params.token}/upload/cleanup`,
+            Public: `/api/sharing/upload/cleanup/${currentRoute.params.token}`,
         }
         
-        return routeMap[store.getters.currentRoute.name] || '/api/upload/cleanup'
+        return routeMap[currentRoute.name] || '/api/upload/cleanup'
     },
 
     getChunkedUploadCancelRoute() {
+        const currentRoute = router.currentRoute;
         const routeMap = {
-            RequestUpload: `/api/file-request/${store.getters.currentRoute.params.token}/upload/cancel`,
-            Public: `/api/sharing/upload/cancel/${store.getters.currentRoute.params.token}`,
+            RequestUpload: `/api/file-request/${currentRoute.params.token}/upload/cancel`,
+            Public: `/api/sharing/upload/cancel/${currentRoute.params.token}`,
         }
         
-        return routeMap[store.getters.currentRoute.name] || '/api/upload/cancel'
+        return routeMap[currentRoute.name] || '/api/upload/cancel'
     },
 
     /**

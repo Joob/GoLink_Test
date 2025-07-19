@@ -11,6 +11,7 @@ import { events } from './bus'
 import SubscriptionHelpers from './helpers/SubscriptionHelpers'
 import ValidatorHelpers from './helpers/ValidatorHelpers'
 import functionHelpers from './helpers/functionHelpers'
+import functionsHelpers from './helpers/functionsHelpers'
 import AlertHelpers from './helpers/AlertHelpers'
 import itemHelpers from './helpers/itemHelpers'
 import { VueReCaptcha } from 'vue-recaptcha-v3'
@@ -19,6 +20,7 @@ Vue.use(VueRouter)
 Vue.use(SubscriptionHelpers)
 Vue.use(ValidatorHelpers)
 Vue.use(functionHelpers)
+Vue.use(functionsHelpers)
 Vue.use(AlertHelpers)
 Vue.use(itemHelpers)
 

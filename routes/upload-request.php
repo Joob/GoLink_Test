@@ -10,6 +10,9 @@ use Domain\UploadRequest\Controllers\MoveItemInUploadRequestController;
 use Domain\UploadRequest\Controllers\SetUploadRequestAsFilledController;
 use Domain\UploadRequest\Controllers\UploadFilesForUploadRequestController;
 use Domain\UploadRequest\Controllers\GetFolderTreeForUploadRequestController;
+use Domain\UploadRequest\Controllers\InitChunkedUploadForUploadRequestController;
+use Domain\UploadRequest\Controllers\FinalizeChunkedUploadForUploadRequestController;
+use Domain\UploadRequest\Controllers\CancelChunkedUploadForUploadRequestController;
 use Domain\RemoteUpload\Controllers\UploadFilesRemotelyForUploadRequestController;
 
 Route::get('/{uploadRequest}', GetUploadRequestController::class);
@@ -21,6 +24,11 @@ Route::group(['middleware' => 'upload-request'], function () {
 
     // Edit
     Route::post('/{uploadRequest}/upload/remote', UploadFilesRemotelyForUploadRequestController::class);
+    Route::post('/{uploadRequest}/upload/init', InitChunkedUploadForUploadRequestController::class);
+    Route::post('/{uploadRequest}/upload/chunks', UploadFileChunksForUploadRequestController::class);
+    Route::post('/{uploadRequest}/upload/finalize', FinalizeChunkedUploadForUploadRequestController::class);
+    Route::post('/{uploadRequest}/upload/cancel', CancelChunkedUploadForUploadRequestController::class);
+    Route::delete('/{uploadRequest}/upload/cleanup', CancelChunkedUploadForUploadRequestController::class);
     Route::post('/{uploadRequest}/upload', UploadFilesForUploadRequestController::class);
     Route::patch('/{uploadRequest}/rename/{id}', RenameFileOrFolderController::class);
     Route::post('/{uploadRequest}/create-folder', CreateFolderController::class);

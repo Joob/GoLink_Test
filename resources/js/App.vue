@@ -5,6 +5,7 @@
         <ToasterWrapper />
         <CookieDisclaimer />
         <RemoteUploadProgress />
+        <UploadProgressBar />
 
         <!--Show spinner before translations is loaded-->
         <Spinner v-if="!isLoaded" />
@@ -26,6 +27,7 @@
 <script>
 import RestrictionWarningBar from './components/Subscription/RestrictionWarningBar'
 import RemoteUploadProgress from "./components/RemoteUpload/RemoteUploadProgress"
+import UploadProgressBar from './components/UploadProgressBar'
 import ToasterWrapper from './components/Toaster/ToasterNotifications'
 import SidebarNavigation from "./components/Sidebar/SidebarNavigation"
 import CookieDisclaimer from './components/UI/Others/CookieDisclaimer'
@@ -40,6 +42,7 @@ export default {
     components: {
         RestrictionWarningBar,
 		RemoteUploadProgress,
+		UploadProgressBar,
 		SidebarNavigation,
         CookieDisclaimer,
         ToasterWrapper,
@@ -58,8 +61,7 @@ export default {
 		// Adicione este computed para gerar uma key única
 		routeKey() {
 			// Usa o fullPath para garantir que cada rota tenha uma key única
-			// Adiciona timestamp para garantir re-renderização completa
-			return `${this.$route.fullPath}-${Date.now()}`
+			return this.$route.fullPath
 		}
     },
     watch: {

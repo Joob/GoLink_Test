@@ -265,6 +265,7 @@ const FunctionHelpers = {
                             form: formData,
                             fileSize: item.file.size,
                             totalUploadedSize: uploadedSize,
+                            fileData: item, // Add file data for enhanced tracking
                         })
                         .then(() => {
                             uploadedSize = uploadedSize + chunk.size

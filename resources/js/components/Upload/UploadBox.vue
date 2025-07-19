@@ -244,12 +244,24 @@ export default {
             return !this.userManuallyClosed && (this.files.length > 0 || this.fileQueue.length > 0)
         },
         
-        completedCount() {
-            return this.files.filter(file => file.status === 'completed').length
+        totalCount() {
+            // Use store queue total if available (more accurate for active uploads)
+            if (this.filesInQueueTotal > 0) {
+                return this.filesInQueueTotal
+            }
+            
+            // Fall back to files array length
+            return this.files.length
         },
         
-        totalCount() {
-            return this.files.length || this.fileQueue.length
+        completedCount() {
+            // Use store queue uploaded count if available
+            if (this.filesInQueueTotal > 0) {
+                return this.filesInQueueUploaded
+            }
+            
+            // Fall back to counting completed files in array
+            return this.files.filter(file => file.status === 'completed').length
         },
         
         activeCount() {

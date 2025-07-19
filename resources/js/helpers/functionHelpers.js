@@ -275,7 +275,7 @@ const FunctionHelpers = {
                                 uploadedSize = uploadedSize + chunk.size
                                 chunkUploadSuccess = true
                             })
-                            .catch((error) => {
+                            .catch(async (error) => {
                                 // Count attempts
                                 attempts++
                                 
@@ -299,7 +299,7 @@ const FunctionHelpers = {
                                 // Add exponential backoff for retries
                                 if (attempts < 3) {
                                     const delay = Math.min(1000 * Math.pow(2, attempts - 1), 5000)
-                                    return new Promise(resolve => setTimeout(resolve, delay))
+                                    await new Promise(resolve => setTimeout(resolve, delay))
                                 }
                             })
                     } catch (error) {

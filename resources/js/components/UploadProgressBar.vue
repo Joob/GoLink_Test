@@ -105,22 +105,24 @@ export default {
             'estimatedTimeRemaining',
         ]),
         currentFileName() {
-            return this.currentUploadingFile?.file?.name || this.fileQueue[0]?.file?.name || 'Unknown file'
+            return this.currentUploadingFile?.file?.name || 
+                   this.fileQueue[0]?.file?.name || 
+                   this.$t('uploading.unknown_file')
         },
         uploadSpeedFormatted() {
-            if (!this.uploadSpeed || this.uploadSpeed === 0) return null
+            if (!this.uploadSpeed || this.uploadSpeed <= 0) return null
             const speedMB = this.uploadSpeed / (1024 * 1024)
             return speedMB >= 1 
                 ? `${speedMB.toFixed(1)} MB/s` 
-                : `${(this.uploadSpeed / 1024).toFixed(0)} KB/s`
+                : `${Math.max(1, (this.uploadSpeed / 1024)).toFixed(0)} KB/s`
         },
         timeRemainingFormatted() {
-            if (!this.estimatedTimeRemaining || this.estimatedTimeRemaining === 0) return null
-            const seconds = this.estimatedTimeRemaining
+            if (!this.estimatedTimeRemaining || this.estimatedTimeRemaining <= 0) return null
+            const seconds = Math.floor(this.estimatedTimeRemaining)
             if (seconds < 60) return `${seconds}s`
             const minutes = Math.floor(seconds / 60)
             const remainingSeconds = seconds % 60
-            return `${minutes}m ${remainingSeconds}s`
+            return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`
         },
     },
     methods: {

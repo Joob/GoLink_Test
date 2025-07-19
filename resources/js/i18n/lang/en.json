@@ -777,7 +777,8 @@
 		"uploading_file": "Uploading File",
 		"minimize": "Minimize",
 		"expand": "Expand", 
-		"recent_uploads": "Recent Uploads"
+		"recent_uploads": "Recent Uploads",
+		"unknown_file": "Unknown file"
 	},
 	"user_add_card": {
 		"default_description": "Your card will be charged for billing plans as first.",

@@ -254,8 +254,10 @@ const actions = {
                         const startTime = getters.uploadStartTime
                         if (startTime && currentTime > startTime) {
                             const elapsedSeconds = (currentTime - startTime) / 1000
-                            const speed = completedSize / elapsedSeconds // bytes per second
-                            commit('UPDATE_UPLOAD_SPEED', speed)
+                            if (elapsedSeconds > 0) {
+                                const speed = completedSize / elapsedSeconds // bytes per second
+                                commit('UPDATE_UPLOAD_SPEED', speed)
+                            }
                         }
                         
                         commit('UPDATE_UPLOADED_BYTES', completedSize)
@@ -661,8 +663,10 @@ const getters = {
     recentUploads: (state) => state.recentUploads,
     canCancelUpload: (state) => state.canCancelUpload,
     estimatedTimeRemaining: (state) => {
-        if (!state.uploadSpeed || state.uploadingProgress >= 100) return 0
-        const remainingBytes = (state.currentUploadingFile?.file?.size || 0) - state.uploadedBytes
+        if (!state.uploadSpeed || state.uploadingProgress >= 100 || !state.currentUploadingFile) return 0
+        const currentFileSize = state.currentUploadingFile?.file?.size || 0
+        const uploadedBytes = Math.floor((state.uploadingProgress / 100) * currentFileSize)
+        const remainingBytes = currentFileSize - uploadedBytes
         return Math.ceil(remainingBytes / state.uploadSpeed)
     },
 }

@@ -61,8 +61,7 @@ export default {
 		// Adicione este computed para gerar uma key única
 		routeKey() {
 			// Usa o fullPath para garantir que cada rota tenha uma key única
-			// Adiciona timestamp para garantir re-renderização completa
-			return `${this.$route.fullPath}-${Date.now()}`
+			return this.$route.fullPath
 		}
     },
     watch: {

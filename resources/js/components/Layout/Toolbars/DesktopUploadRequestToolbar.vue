@@ -89,8 +89,6 @@
                 </div>
             </div>
         </div>
-
-        <UploadProgress />
     </div>
 </template>
 
@@ -99,7 +97,6 @@ import PopoverWrapper from '../../UI/Popover/PopoverWrapper'
 import FileSortingOptions from '../../Menus/FileSortingOptions'
 import LanguageSwitcher from '../../Others/LanguageSwitcherDashboard'
 import PopoverItem from '../../UI/Popover/PopoverItem'
-import UploadProgress from '../../UI/Others/UploadProgress'
 import NavigationBar from './NavigationBar'
 import ToolbarButton from '../../UI/Buttons/ToolbarButton'
 import MemberAvatar from "../../UI/Others/MemberAvatar"
@@ -114,7 +111,6 @@ export default {
     components: {
         FileSortingOptions,
         LanguageSwitcher,
-        UploadProgress,
         PopoverWrapper,
         NavigationBar,
         ToolbarButton,

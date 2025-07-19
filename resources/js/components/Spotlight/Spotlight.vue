@@ -693,6 +693,14 @@ export default {
             if (this.user && this.user.data && this.user.data.attributes && this.user.data.attributes.role === 'user') {
                 return [].concat.apply([], [functionList, createList, userSettings, fileLocations])
             }
+
+            // Fallback for any logged user (ensures search functionality works)
+            if (this.user && this.user.data) {
+                return [].concat.apply([], [functionList, userSettings, fileLocations])
+            }
+
+            // Fallback for non-logged users
+            return [].concat.apply([], [functionList])
         },
         isAdmin() {
             return this.user && this.user.data && this.user.data.attributes && this.user.data.attributes.role === 'admin'
@@ -748,7 +756,7 @@ export default {
 
             // Browse actions
             if (!this.activeFilter) {
-                this.actions = this.actionList
+                this.actions = (this.actionList || [])
                     .filter((el) => el.title.toLowerCase().indexOf(formattedQuery) > -1)
                     .slice(0, 3)
             }

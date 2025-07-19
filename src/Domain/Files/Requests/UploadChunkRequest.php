@@ -30,6 +30,8 @@ class UploadChunkRequest extends FormRequest
             'is_last_chunk'  => 'required|boolean',
             'extension'      => 'required|string|nullable',
             'chunk'          => ['required', 'file', new DisabledMimetypes],
+            'session_id'     => 'sometimes|string',
+            'chunk_index'    => 'sometimes|integer|min:0',
         ];
     }
 }

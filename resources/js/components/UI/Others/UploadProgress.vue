@@ -19,11 +19,39 @@
                     }}
                 </span>
             </div>
+            
+            <!-- Enhanced Progress Info -->
+            <div v-if="uploadStats" class="progress-details">
+                <div class="upload-stats">
+                    <span class="upload-size">{{ uploadStats.uploadedFormatted }} / {{ uploadStats.totalFormatted }}</span>
+                    <span v-if="uploadStats.speed" class="upload-speed">{{ uploadStats.speed }}</span>
+                    <span v-if="uploadStats.timeRemaining" class="upload-time">{{ uploadStats.timeRemaining }} remaining</span>
+                </div>
+            </div>
+            
             <div class="progress-wrapper">
                 <ProgressBar :progress="uploadingProgress" />
-                <span @click="cancelUpload" :title="$t('uploading.cancel')" class="cancel-icon">
-                    <x-icon size="16" @click="cancelUpload" class="hover-text-theme"></x-icon>
-                </span>
+                <div class="progress-controls">
+                    <span 
+                        v-if="!isPaused" 
+                        @click="pauseUpload" 
+                        :title="$t('uploading.pause')" 
+                        class="control-icon"
+                    >
+                        <pause-icon size="16" class="hover-text-theme" />
+                    </span>
+                    <span 
+                        v-if="isPaused" 
+                        @click="resumeUpload" 
+                        :title="$t('uploading.resume')" 
+                        class="control-icon"
+                    >
+                        <play-icon size="16" class="hover-text-theme" />
+                    </span>
+                    <span @click="cancelUpload" :title="$t('uploading.cancel')" class="control-icon cancel-icon">
+                        <x-icon size="16" class="hover-text-theme" />
+                    </span>
+                </div>
             </div>
         </div>
     </transition>
@@ -31,7 +59,7 @@
 
 <script>
 import ProgressBar from './ProgressBar'
-import { RefreshCwIcon, XIcon } from 'vue-feather-icons'
+import { RefreshCwIcon, XIcon, PauseIcon, PlayIcon } from 'vue-feather-icons'
 import { mapGetters } from 'vuex'
 import { events } from '../../../bus'
 
@@ -41,6 +69,8 @@ export default {
         RefreshCwIcon,
         ProgressBar,
         XIcon,
+        PauseIcon,
+        PlayIcon,
     },
     computed: {
         ...mapGetters([
@@ -49,18 +79,33 @@ export default {
             'uploadingProgress',
             'isProcessingFile',
             'fileQueue',
+            'uploadStats',
+            'isPaused',
         ]),
     },
     methods: {
         cancelUpload() {
-            events.$emit('cancel-upload')
-            this.$store.commit('CLEAR_UPLOAD_PROGRESS')
+            this.$cancelCurrentUpload()
             setTimeout(() => {
                 events.$emit('toaster', { 
                     type: 'danger',
                     message: this.$t('uploaded_canceled'),
                 })
             }, 1000) // 1 seconds delay
+        },
+        pauseUpload() {
+            this.$pauseUpload()
+            events.$emit('toaster', {
+                type: 'info',
+                message: this.$t('uploading.paused'),
+            })
+        },
+        resumeUpload() {
+            this.$resumeUpload()
+            events.$emit('toaster', {
+                type: 'info',
+                message: this.$t('uploading.resumed'),
+            })
         },
     },
 }
@@ -105,21 +150,6 @@ export default {
     position: relative;
     z-index: 1;
 
-    .progress-wrapper {
-        display: flex;
-
-        .cancel-icon {
-            cursor: pointer;
-            padding: 0 7px 0 13px;
-
-            &:hover {
-                line {
-                    color: inherit;
-                }
-            }
-        }
-    }
-
     .progress-title {
         font-weight: 700;
         text-align: center;
@@ -128,11 +158,106 @@ export default {
             @include font-size(14);
         }
     }
+
+    .progress-details {
+        margin: 0.5rem 0;
+        
+        .upload-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.875rem;
+            color: $text_muted;
+            
+            .upload-size {
+                font-weight: 500;
+            }
+            
+            .upload-speed {
+                color: $theme;
+            }
+            
+            .upload-time {
+                font-style: italic;
+            }
+        }
+    }
+
+    .progress-wrapper {
+        display: flex;
+        align-items: center;
+
+        .progress-controls {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0 7px 0 13px;
+
+            .control-icon {
+                cursor: pointer;
+                padding: 0.25rem;
+                border-radius: 4px;
+                transition: all 0.2s ease;
+                
+                &:hover {
+                    background: rgba($theme, 0.1);
+                    
+                    line,
+                    polyline,
+                    circle {
+                        color: $theme;
+                    }
+                }
+
+                &.cancel-icon:hover {
+                    background: rgba($danger, 0.1);
+                    
+                    line {
+                        color: $danger;
+                    }
+                }
+            }
+        }
+    }
 }
 
 .dark {
     .progress-bar {
         background: $dark_mode_foreground;
+    }
+    
+    .progress-details {
+        .upload-stats {
+            color: $dark_mode_text_muted;
+            
+            .upload-speed {
+                color: $theme;
+            }
+        }
+    }
+    
+    .control-icon {
+        &:hover {
+            background: rgba($theme, 0.2);
+        }
+        
+        &.cancel-icon:hover {
+            background: rgba($danger, 0.2);
+        }
+    }
+}
+
+@media (max-width: 768px) {
+    .progress-details {
+        .upload-stats {
+            flex-direction: column;
+            gap: 0.25rem;
+            text-align: center;
+        }
+    }
+    
+    .progress-controls {
+        flex-direction: column;
+        gap: 0.25rem !important;
     }
 }
 </style>

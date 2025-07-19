@@ -18,6 +18,9 @@ use Domain\Browsing\Controllers\BrowseSharedController;
 use Domain\Sharing\Controllers\ShareViaEmailController;
 use Domain\Sharing\Controllers\GetPasswordNoteController;
 use Domain\Files\Controllers\UploadFileChunksController;
+use Domain\Files\Controllers\InitChunkedUploadController;
+use Domain\Files\Controllers\FinalizeChunkedUploadController;
+use Domain\Files\Controllers\CancelChunkedUploadController;
 use Domain\Folders\Controllers\NavigationTreeController;
 use Domain\Items\Controllers\MoveFileOrFolderController;
 use App\Socialite\Controllers\SocialiteRedirectController;
@@ -158,7 +161,11 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
 // User master,editor routes
 Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::post('/upload/remote', RemoteUploadFileController::class);
+    Route::post('/upload/init', InitChunkedUploadController::class);
     Route::post('/upload/chunks', UploadFileChunksController::class);
+    Route::post('/upload/finalize', FinalizeChunkedUploadController::class);
+    Route::post('/upload/cancel', CancelChunkedUploadController::class);
+    Route::delete('/upload/cleanup', CancelChunkedUploadController::class);
     Route::post('/upload', UploadFileController::class);
 
     Route::post('/create-folder', CreateFolderController::class);

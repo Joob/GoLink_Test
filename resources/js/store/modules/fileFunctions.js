@@ -12,6 +12,10 @@ const defaultState = {
     filesInQueueTotal: 0,
     uploadingProgress: 0,
     fileQueue: [],
+    uploadStats: null,
+    isPaused: false,
+    isUploading: false,
+    currentUploadSession: null,
 }
 
 const actions = {
@@ -214,13 +218,24 @@ const actions = {
             .catch(() => Vue.prototype.$isSomethingWrong())
 
     },
-    uploadFiles: ({ commit, getters, dispatch}, { form, fileSize, totalUploadedSize }) => {
+    uploadFiles: ({ commit, getters, dispatch}, { form, fileSize, totalUploadedSize, uploadStrategy = 'chunked' }) => {
         return new Promise((resolve, reject) => {
-            // Get route
-            let route = {
-                RequestUpload: `/api/file-request/${router.currentRoute.params.token}/upload/chunks`,
-                Public: `/api/sharing/upload/chunks/${router.currentRoute.params.token}`,
-            }[router.currentRoute.name] || '/api/upload/chunks'
+            // Set uploading state
+            commit('SET_UPLOADING_STATE', true)
+            
+            // Get route based on upload strategy
+            let route
+            if (uploadStrategy === 'direct') {
+                route = {
+                    RequestUpload: `/api/file-request/${router.currentRoute.params.token}/upload`,
+                    Public: `/api/sharing/upload/${router.currentRoute.params.token}`,
+                }[router.currentRoute.name] || '/api/upload'
+            } else {
+                route = {
+                    RequestUpload: `/api/file-request/${router.currentRoute.params.token}/upload/chunks`,
+                    Public: `/api/sharing/upload/chunks/${router.currentRoute.params.token}`,
+                }[router.currentRoute.name] || '/api/upload/chunks'
+            }
 
             // Create cancel token for axios cancellation
             const CancelToken = axios.CancelToken,
@@ -228,26 +243,36 @@ const actions = {
             
             let completedUploads = 0;
 
+            // Store cancel source for potential cancellation
+            commit('SET_UPLOAD_SESSION', source)
+
             axios
                 .post(route, form, {
                     cancelToken: source.token,
                     headers: {
-                        'Content-Type': 'application/octet-stream',
+                        'Content-Type': uploadStrategy === 'direct' ? 'multipart/form-data' : 'application/octet-stream',
                     },
                     onUploadProgress: (event) => {
-
                         const completedSize = totalUploadedSize + event.loaded;
-                        const fileSizeMB = fileSize / (1024 * 1024); // Convert fileSize to megabytes
-                        const completedSizeMB = completedSize / (1024 * 1024); // Convert completedSize to megabytes
+                        const fileSizeMB = fileSize / (1024 * 1024);
+                        const completedSizeMB = completedSize / (1024 * 1024);
                         const progress = Math.floor((completedSize / fileSize) * 100);
                         const progressText = `${completedSizeMB.toFixed(2)}mb / ${fileSizeMB.toFixed(2)}mb`;
-                        //let percentCompleted = Math.floor(((totalUploadedSize + event.loaded) / fileSize) * 100)
-
-                        //commit('UPLOADING_FILE_PROGRESS', percentCompleted >= 100 ? 100 : percentCompleted)
 
                         commit('UPLOADING_FILE_PROGRESS', progress >= 100 ? 100 : progress);
 
-                        // Set processing file
+                        // Update enhanced upload stats
+                        commit('UPDATE_UPLOAD_STATS', {
+                            progress,
+                            uploadedBytes: completedSize,
+                            totalBytes: fileSize,
+                            uploadedFormatted: `${completedSizeMB.toFixed(2)}MB`,
+                            totalFormatted: `${fileSizeMB.toFixed(2)}MB`,
+                            speed: null,
+                            timeRemaining: null
+                        });
+
+                        // Set processing file when approaching completion
                         if (progress >= 100) {
                             commit('PROCESSING_FILE', true);
                         }
@@ -257,8 +282,6 @@ const actions = {
                     resolve(response)
 
                     completedUploads++;
-
-                    //const message = "All Files Uploaded Successfully";
 
                     // Check if all files are uploaded
                     if (completedUploads === getters.fileQueue.length) {            
@@ -271,12 +294,8 @@ const actions = {
                     
                     // Proceed if was returned database record
                     if (response.data.data.id) {
-
                         commit('PROCESSING_FILE', false)
-
                         commit('INCREASE_FOLDER_ITEM', response.data.data.attributes.parent_id)
-
-                        // Remove first file from file queue
                         commit('SHIFT_FROM_FILE_QUEUE')
 
                         // Refresh request detail to update currentFolder in Vuex
@@ -290,14 +309,11 @@ const actions = {
                             (getters.currentFolder &&
                                 response.data.data.attributes.parent_id === getters.currentFolder.data.id)
                         ) {
-                            // Add uploaded item into view
                             commit('ADD_NEW_ITEM', response.data)
                         }
 
                         // Reset file progress
                         commit('UPLOADING_FILE_PROGRESS', 0)
-
-                        // Increase count in files in queue uploaded for 1
                         commit('INCREASE_FILES_IN_QUEUE_UPLOADED')
 
                         // Start uploading next file if file queue is not empty
@@ -313,19 +329,22 @@ const actions = {
                         // Reload File data after folder uploading is finished
                         if (getters.isUploadingFolder) {
                             commit('START_LOADING_VIEW')
-
-                            // Reload files after folder upload is done
                             Vue.prototype.$getDataByLocation(1)
-
-                            // Reload folder tree
                             dispatch('getFolderTree')
-
                             commit('UPDATE_UPLOADING_FOLDER_STATE', false)
                         }
-
                     }
                 })
                 .catch((error) => {
+                    commit('SET_UPLOADING_STATE', false)
+                    
+                    if (axios.isCancel(error)) {
+                        // Upload was cancelled
+                        commit('CLEAR_UPLOAD_PROGRESS')
+                        reject(new Error('Upload cancelled'))
+                        return
+                    }
+
                     try {
                       let title = '';
                       let message = '';
@@ -348,7 +367,6 @@ const actions = {
                                 message = i18n.t('popup_payload_error.message');
                                 break;
                             case 401:
-                                //title = i18n.t('popup_unauthorized.title');
                                 title = i18n.t('popup_exceed_limit.title');
                                 message = i18n.t('popup_exceed_limit.message');
                                 break;
@@ -375,11 +393,15 @@ const actions = {
                         // Start uploading the next file if the file queue is not empty
                         if (getters.fileQueue.length) {
                             Vue.prototype.$handleUploading(getters.fileQueue[0]);
+                        } else {
+                            commit('CLEAR_UPLOAD_PROGRESS')
                         }
             
                     } catch (error) {
                       console.error(error);
                     }
+                    
+                    reject(error)
                 })
         })
     },
@@ -564,11 +586,17 @@ const mutations = {
     SHIFT_FROM_FILE_QUEUE(state) {
         state.fileQueue.shift()
     },
+    REMOVE_FROM_FILE_QUEUE(state, index) {
+        state.fileQueue.splice(index, 1)
+    },
     PROCESSING_FILE(state, status) {
         state.isProcessingFile = status
     },
     UPLOADING_FILE_PROGRESS(state, percentage) {
         state.uploadingProgress = percentage
+    },
+    UPDATE_UPLOAD_STATS(state, stats) {
+        state.uploadStats = stats
     },
     INCREASE_FILES_IN_QUEUES_TOTAL(state) {
         state.filesInQueueTotal += 1
@@ -580,6 +608,24 @@ const mutations = {
         state.filesInQueueUploaded = 0
         state.filesInQueueTotal = 0
         state.fileQueue = []
+        state.uploadStats = null
+        state.isPaused = false
+        state.isUploading = false
+        state.currentUploadSession = null
+    },
+    PAUSE_UPLOAD(state) {
+        state.isPaused = true
+        state.isUploading = false
+    },
+    RESUME_UPLOAD(state) {
+        state.isPaused = false
+        state.isUploading = true
+    },
+    SET_UPLOADING_STATE(state, status) {
+        state.isUploading = status
+    },
+    SET_UPLOAD_SESSION(state, sessionId) {
+        state.currentUploadSession = sessionId
     },
 }
 
@@ -591,6 +637,10 @@ const getters = {
     isProcessingFile: (state) => state.isProcessingFile,
     processingPopup: (state) => state.processingPopup,
     fileQueue: (state) => state.fileQueue,
+    uploadStats: (state) => state.uploadStats,
+    isPaused: (state) => state.isPaused,
+    isUploading: (state) => state.isUploading,
+    currentUploadSession: (state) => state.currentUploadSession,
 }
 
 export default {

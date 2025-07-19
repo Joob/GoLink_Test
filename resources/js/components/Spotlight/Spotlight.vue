@@ -262,10 +262,10 @@
                                 class="max-w-1 block overflow-hidden text-ellipsis whitespace-nowrap text-sm font-bold"
                                 style="max-width: 155px"
                             >
-                                {{ result.data && result.data.attributes ? result.data.attributes.name : '' }}
+                                {{ result && result.data && result.data.attributes ? result.data.attributes.name : '' }}
                             </b>
                             <span class="block text-xs text-gray-600 dark:text-gray-500">
-                                {{ result.data && result.data.attributes ? result.data.attributes.email : '' }}
+                                {{ result && result.data && result.data.attributes ? result.data.attributes.email : '' }}
                             </span>
                         </div>
                     </div>
@@ -906,7 +906,7 @@ export default {
                     params: { query: value },
                 })
                 .then((response) => {
-					this.results = response.data && response.data.data ? response.data.data : []
+					this.results = response && response.data && response.data.data ? response.data.data : []
                 })
                 .catch(() => this.$isSomethingWrong())
                 .finally(() => (this.isLoading = false))

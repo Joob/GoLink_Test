@@ -356,38 +356,27 @@ export default {
             if (data.operation === 'remove-folders-files') {
                 if (!this.$store.getters.clipboard.includes(entry)) {
                     this.$store.dispatch('deleteItem', entry)
-                    //this.$getDataByLocation(1)
                 } else {
                     this.$store.dispatch('deleteItem')
-                    //this.$getDataByLocation(1)
                 }
+            }
+            
+            if (data.operation === 'remove-permanent-folders-files') {
+                this.$store.dispatch('emptyTrash')
             }
         },
     },
-    mounted () {
+    created() {
         events.$on('context-menu:show', this.contextMenuShow)
         events.$on('context-menu:current-folder', this.contextMenuCurrentFolder)
         events.$on('mobile-context-menu:show', this.mobileContextMenuShow)
         events.$on('action:confirmed', this.actionConfirmed)
     },
-    beforeUnmount () {
+    beforeDestroy() {
         events.$off('context-menu:show', this.contextMenuShow)
         events.$off('context-menu:current-folder', this.contextMenuCurrentFolder)
         events.$off('mobile-context-menu:show', this.mobileContextMenuShow)
         events.$off('action:confirmed', this.actionConfirmed)
-    },
-    created() {
-        events.$on('context-menu:show', (event, folder) => (this.item = folder))
-        events.$on('mobile-context-menu:show', (folder) => (this.item = folder))
-
-        events.$on('action:confirmed', (data) => {
-            if (data.operation === 'remove-permanent-folders-files')
-
-                this.$store.dispatch('emptyTrash')
-        })
-    },
-    destroyed() {
-        events.$off('action:confirmed')
     },
 }
 </script>

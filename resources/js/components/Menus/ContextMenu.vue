@@ -51,6 +51,12 @@ export default {
             // Reset item container
             this.item = undefined
         },
+        handleClickOutside(event) {
+            // Close menu if clicking outside of it
+            if (this.isVisible && !this.$refs.contextmenu.contains(event.target)) {
+                this.closeAndResetContextMenu()
+            }
+        },
         showContextMenu(event) {
 
             // Show context menu
@@ -72,31 +78,36 @@ export default {
             setTimeout(() => this.showContextMenu(event, item), 10)
         },
         contextMenuCurrentFolder: function(folder){
-    this.item = folder
+            this.item = folder
 
-    this.isVisible = !this.isVisible
+            // Always show the menu when called (don't toggle)
+            this.isVisible = true
 
-    if (this.isVisible) {
-        let container = document.getElementById('folder-actions').getBoundingClientRect()
-
-        this.positionX = container.x
-        this.positionY = container.y + 20
-    }
-}
+            let container = document.getElementById('folder-actions')
+            if (container) {
+                let containerRect = container.getBoundingClientRect()
+                this.positionX = containerRect.x
+                this.positionY = containerRect.y + 20
+            }
+        }
     },
     created() {
         events.$on('context-menu:hide', this.closeAndResetContextMenu)
-
         events.$on('context-menu:show', this.contextMenuShow)
-
         events.$on('context-menu:current-folder', this.contextMenuCurrentFolder)
+        events.$on('context-menu:close-all', this.closeAndResetContextMenu)
+        
+        // Add global click listener to close menu when clicking outside
+        document.addEventListener('click', this.handleClickOutside)
     },
     beforeDestroy () {
         events.$off('context-menu:hide', this.closeAndResetContextMenu)
-
         events.$off('context-menu:show', this.contextMenuShow)
-
         events.$off('context-menu:current-folder', this.contextMenuCurrentFolder)
+        events.$off('context-menu:close-all', this.closeAndResetContextMenu)
+        
+        // Remove global click listener
+        document.removeEventListener('click', this.handleClickOutside)
     }
 }
 </script>

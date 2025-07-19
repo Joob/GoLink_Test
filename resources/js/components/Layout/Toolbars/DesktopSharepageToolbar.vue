@@ -180,20 +180,17 @@ export default {
             item: null
         }
     },
-    mounted () {
+    created() {
         events.$on('context-menu:show', this.contextMenuShow)
         events.$on('context-menu:current-folder', this.contextMenuCurrentFolder)
         events.$on('mobile-context-menu:show', this.mobileContextMenuShow)
         events.$on('action:confirmed', this.actionConfirmed)
     },
-    beforeUnmount () {
+    beforeDestroy() {
         events.$off('context-menu:show', this.contextMenuShow)
         events.$off('context-menu:current-folder', this.contextMenuCurrentFolder)
         events.$off('mobile-context-menu:show', this.mobileContextMenuShow)
         events.$off('action:confirmed', this.actionConfirmed)
-    },
-    destroyed() {
-        events.$off('action:confirmed')
     },
 }
 </script>

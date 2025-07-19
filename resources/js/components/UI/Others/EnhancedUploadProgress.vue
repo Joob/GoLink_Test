@@ -4,9 +4,9 @@
             <div class="upload-panel-header">
                 <div class="upload-title">
                     <upload-cloud-icon size="16" class="upload-icon" />
-                    <span>{{ $t('uploading.title', {}, 'Uploading Files') }}</span>
+                    <span>{{ getTranslation('uploading.title', {}, 'Uploading Files') }}</span>
                 </div>
-                <button @click="togglePanel" class="toggle-button" :title="isExpanded ? $t('uploading.collapse', {}, 'Collapse') : $t('uploading.expand', {}, 'Expand')">
+                <button @click="togglePanel" class="toggle-button" :title="isExpanded ? getTranslation('uploading.collapse', {}, 'Collapse') : getTranslation('uploading.expand', {}, 'Expand')">
                     <chevron-up-icon v-if="isExpanded" size="16" />
                     <chevron-down-icon v-else size="16" />
                 </button>
@@ -17,10 +17,10 @@
                 <div class="overall-progress">
                     <div class="progress-info">
                         <span class="progress-text">
-                            {{ $t('uploading.progress', {
+                            {{ getTranslation('uploading.progress', {
                                 current: filesInQueueUploaded,
                                 total: filesInQueueTotal
-                            }) }}
+                            }, `File ${filesInQueueUploaded} of ${filesInQueueTotal}`) }}
                         </span>
                         <span class="progress-percentage">{{ uploadingProgress }}%</span>
                     </div>
@@ -31,7 +31,7 @@
                                 :style="{ width: uploadingProgress + '%' }"
                             ></div>
                         </div>
-                        <button @click="cancelUpload" class="cancel-button" :title="$t('uploading.cancel', {}, 'Cancel Upload')">
+                        <button @click="cancelUpload" class="cancel-button" :title="getTranslation('uploading.cancel', {}, 'Cancel Upload')">
                             <x-icon size="14" />
                         </button>
                     </div>
@@ -48,14 +48,14 @@
                     </div>
                     <div v-if="isProcessingFile" class="processing-indicator">
                         <refresh-cw-icon size="12" class="processing-icon" />
-                        <span>{{ $t('uploading.processing_file') }}</span>
+                        <span>{{ getTranslation('uploading.processing_file', {}, 'Processing file...') }}</span>
                     </div>
                 </div>
 
                 <!-- Queue List -->
                 <div v-if="fileQueue.length > 1" class="queue-list">
                     <div class="queue-header">
-                        <span>{{ $t('uploading.queue', {}, 'Queue') }} ({{ fileQueue.length - 1 }} {{ $t('uploading.remaining', {}, 'remaining') }})</span>
+                        <span>{{ getTranslation('uploading.queue', {}, 'Queue') }} ({{ fileQueue.length - 1 }} {{ getTranslation('uploading.remaining', {}, 'remaining') }})</span>
                     </div>
                     <div class="queue-items">
                         <div 
@@ -70,7 +70,7 @@
                             <span class="queue-file-size">{{ formatFileSize(item.file.size) }}</span>
                         </div>
                         <div v-if="fileQueue.length > 4" class="more-files">
-                            +{{ fileQueue.length - 4 }} {{ $t('uploading.more_files', {}, 'more files') }}
+                            +{{ fileQueue.length - 4 }} {{ getTranslation('uploading.more_files', {}, 'more files') }}
                         </div>
                     </div>
                 </div>
@@ -135,6 +135,18 @@ export default {
             const sizes = ['B', 'KB', 'MB', 'GB']
             const i = Math.floor(Math.log(bytes) / Math.log(k))
             return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+        },
+        // Translation helper with fallback
+        getTranslation(key, params = {}, fallback = '') {
+            try {
+                if (this.$t) {
+                    return this.$t(key, params);
+                }
+                return fallback || key.split('.').pop();
+            } catch (error) {
+                console.warn(`Translation missing for key: ${key}`);
+                return fallback || key.split('.').pop();
+            }
         }
     },
 }

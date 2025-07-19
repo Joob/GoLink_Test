@@ -246,10 +246,10 @@
                     {{ $t('files_and_folders') }}
                 </CategoryName>
 
-                <div v-if="results.length !== 0" v-for="(result, i) in results" :key="result.data.id" class="relative">
+                <div v-if="results.length !== 0" v-for="(result, i) in results" :key="result.data && result.data.id ? result.data.id : i" class="relative">
                     <!--Users result-->
                     <div
-                        v-if="activeFilter === 'users' && !result.action"
+                        v-if="activeFilter === 'users' && !result.action && result.data && result.data.attributes"
                         :class="{
                             'rounded-xl bg-light-background dark:bg-4x-dark-foreground': i + actions.length === index,
                         }"
@@ -262,10 +262,10 @@
                                 class="max-w-1 block overflow-hidden text-ellipsis whitespace-nowrap text-sm font-bold"
                                 style="max-width: 155px"
                             >
-                                {{ result.data.attributes.name }}
+                                {{ result.data && result.data.attributes ? result.data.attributes.name : '' }}
                             </b>
                             <span class="block text-xs text-gray-600 dark:text-gray-500">
-                                {{ result.data.attributes.email }}
+                                {{ result.data && result.data.attributes ? result.data.attributes.email : '' }}
                             </span>
                         </div>
                     </div>
@@ -690,12 +690,12 @@ export default {
             }
 
             // Return commands for logged user
-            if (this.user.data.attributes.role === 'user') {
+            if (this.user && this.user.data && this.user.data.attributes && this.user.data.attributes.role === 'user') {
                 return [].concat.apply([], [functionList, createList, userSettings, fileLocations])
             }
         },
         isAdmin() {
-            return this.user.data.attributes.role === 'admin'
+            return this.user && this.user.data && this.user.data.attributes && this.user.data.attributes.role === 'admin'
         },
         metaKeyIcon() {
             return this.$isApple() ? '⌘' : 'Ctrl'
@@ -838,26 +838,32 @@ export default {
             this.exitSpotlight()
         },
         openUser(user) {
-            this.$router.push({
-                name: 'UserDetail',
-                params: { id: user.data.id },
-            })
+            if (user && user.data && user.data.id) {
+                this.$router.push({
+                    name: 'UserDetail',
+                    params: { id: user.data.id },
+                })
+            }
 
             this.exitSpotlight()
         },
         openItem(file) {
+            if (!file || !file.data) return
+            
             // Show folder
             if (file.data.type === 'folder') {
                 if (this.$isThisRoute(this.$route, ['Public'])) {
                     this.$router.push({
                         name: 'Public',
                         params: {
-                            token: this.sharedDetail.data.attributes.token,
+                            token: this.sharedDetail && this.sharedDetail.data && this.sharedDetail.data.attributes ? this.sharedDetail.data.attributes.token : '',
                             id: file.data.id,
                         },
                     })
-                } else if (file.data.attributes.isTeamFolder) {
-					let route = file.data.relationships.user.data.id === this.user.data.id
+                } else if (file.data.attributes && file.data.attributes.isTeamFolder) {
+					let route = file.data.relationships && file.data.relationships.user && file.data.relationships.user.data && 
+								this.user && this.user.data && 
+								file.data.relationships.user.data.id === this.user.data.id
 						? 'TeamFolders'
 						: 'SharedWithMe'
 
@@ -900,7 +906,7 @@ export default {
                     params: { query: value },
                 })
                 .then((response) => {
-					this.results = response.data.data
+					this.results = response.data && response.data.data ? response.data.data : []
                 })
                 .catch(() => this.$isSomethingWrong())
                 .finally(() => (this.isLoading = false))

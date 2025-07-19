@@ -215,8 +215,6 @@
                 </div>
             </div>
         </div>
-
-        <UploadProgress />
     </div>
 </template>
 
@@ -227,7 +225,6 @@ import LanguageSwitcher from '../../Others/LanguageSwitcherDashboard'
 import PopoverWrapper from '../../UI/Popover/PopoverWrapper'
 import FileSortingOptions from '../../Menus/FileSortingOptions'
 import PopoverItem from '../../UI/Popover/PopoverItem'
-import UploadProgress from '../../UI/Others/UploadProgress'
 import NavigationBar from './NavigationBar'
 import ToolbarButton from '../../UI/Buttons/ToolbarButton'
 import OptionUpload from '../../Menus/Components/OptionUpload'
@@ -246,7 +243,6 @@ export default {
         TeamFolderPreview,
         LanguageSwitcher,
 		SearchBarButton,
-        UploadProgress,
         PopoverWrapper,
         NavigationBar,
         ToolbarButton,

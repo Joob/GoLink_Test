@@ -5,6 +5,7 @@
         <ToasterWrapper />
         <CookieDisclaimer />
         <RemoteUploadProgress />
+        <EnhancedUploadProgress />
 
         <!--Show spinner before translations is loaded-->
         <Spinner v-if="!isLoaded" />
@@ -26,6 +27,7 @@
 <script>
 import RestrictionWarningBar from './components/Subscription/RestrictionWarningBar'
 import RemoteUploadProgress from "./components/RemoteUpload/RemoteUploadProgress"
+import EnhancedUploadProgress from './components/UI/Others/EnhancedUploadProgress'
 import ToasterWrapper from './components/Toaster/ToasterNotifications'
 import SidebarNavigation from "./components/Sidebar/SidebarNavigation"
 import CookieDisclaimer from './components/UI/Others/CookieDisclaimer'
@@ -40,6 +42,7 @@ export default {
     components: {
         RestrictionWarningBar,
 		RemoteUploadProgress,
+        EnhancedUploadProgress,
 		SidebarNavigation,
         CookieDisclaimer,
         ToasterWrapper,

@@ -216,87 +216,145 @@ const FunctionHelpers = {
         }
 
         Vue.prototype.$handleUploading = async function (item) {
-            // Create ceil
-            let size = store.getters.config.chunkSize,
-                chunksCeil = Math.ceil(item.file.size / size),
-                chunks = []
+            // Set current uploading file in store
+            store.commit('SET_CURRENT_UPLOADING_FILE', item)
 
-            // Create chunks
-            for (let i = 0; i < chunksCeil; i++) {
-                chunks.push(item.file.slice(i * size, Math.min(i * size + size, item.file.size), item.file.type))
+            // Create cancel token for this upload
+            const CancelToken = axios.CancelToken
+            const source = CancelToken.source()
+            
+            // Store cancel token in the store
+            if (item.fileId) {
+                store.commit('ADD_UPLOAD_CANCEL_TOKEN', { 
+                    fileId: item.fileId, 
+                    cancelToken: source 
+                })
             }
 
-            // Set Data
-            let formData = new FormData(),
-                uploadedSize = 0,
-                isNotGeneralError = true,
-                striped_spaces = item.file.name.replace(/\s/g, '-'),
-                striped_to_safe_characters = striped_spaces.match(/^[A-Za-z0-9._~()'!*:@,;+?-\W]*$/g),
-                source_name =
-                    Array(16)
-                        .fill(0)
-                        .map((x) => Math.random().toString(36).charAt(2))
-                        .join('') +
-                    '-' +
-                    striped_to_safe_characters +
-                    '.part'
+            // Listen for cancel events
+            const cancelHandler = () => {
+                source.cancel('Upload cancelled by user')
+                events.$off('cancel-upload', cancelHandler)
+            }
+            events.$on('cancel-upload', cancelHandler)
 
-            do {
-                let isLastChunk = chunks.length === 1 ? 1 : 0,
-                    chunk = chunks.shift(),
-                    attempts = 0
+            try {
+                // Create ceil
+                let size = store.getters.config.chunkSize,
+                    chunksCeil = Math.ceil(item.file.size / size),
+                    chunks = []
 
-                // Set form data
-                formData.set('name', item.file.name)
-                formData.set('chunk', chunk, source_name)
-                formData.set('extension', item.file.name.split('.').pop())
-                formData.set('is_last_chunk', isLastChunk)
+                // Create chunks
+                for (let i = 0; i < chunksCeil; i++) {
+                    chunks.push(item.file.slice(i * size, Math.min(i * size + size, item.file.size), item.file.type))
+                }
 
-                if (item.path && item.path !== '/')
-                    formData.set('path', item.path)
+                // Set Data
+                let formData = new FormData(),
+                    uploadedSize = 0,
+                    striped_spaces = item.file.name.replace(/\s/g, '-'),
+                    striped_to_safe_characters = striped_spaces.match(/^[A-Za-z0-9._~()'!*:@,;+?-\W]*$/g),
+                    source_name =
+                        Array(16)
+                            .fill(0)
+                            .map((x) => Math.random().toString(36).charAt(2))
+                            .join('') +
+                        '-' +
+                        striped_to_safe_characters +
+                        '.part'
 
-                if (item.parent_id)
-                    formData.set('parent_id', item.parent_id)
+                // Upload chunks sequentially
+                for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+                    // Check if upload was cancelled
+                    if (source.token.reason) {
+                        throw new Error('Upload cancelled')
+                    }
 
-                // Upload chunks
-                do {
-                    await store
-                        .dispatch('uploadFiles', {
-                            form: formData,
-                            fileSize: item.file.size,
-                            totalUploadedSize: uploadedSize,
-                        })
-                        .then(() => {
-                            uploadedSize = uploadedSize + chunk.size
-                        })
-                        .catch((error) => {
-                            // Count attempts
+                    let isLastChunk = chunkIndex === chunks.length - 1 ? 1 : 0,
+                        chunk = chunks[chunkIndex],
+                        attempts = 0,
+                        maxAttempts = 3
+
+                    // Set form data
+                    formData.set('name', item.file.name)
+                    formData.set('chunk', chunk, source_name)
+                    formData.set('extension', item.file.name.split('.').pop())
+                    formData.set('is_last_chunk', isLastChunk)
+
+                    if (item.path && item.path !== '/')
+                        formData.set('path', item.path)
+
+                    if (item.parent_id)
+                        formData.set('parent_id', item.parent_id)
+
+                    // Upload chunk with retry logic
+                    let chunkUploaded = false
+                    while (!chunkUploaded && attempts < maxAttempts) {
+                        try {
+                            await store.dispatch('uploadFiles', {
+                                form: formData,
+                                fileSize: item.file.size,
+                                totalUploadedSize: uploadedSize,
+                                fileName: item.file.name,
+                                cancelToken: source.token,
+                            })
+                            
+                            uploadedSize += chunk.size
+                            chunkUploaded = true
+                            
+                        } catch (error) {
                             attempts++
-
-                            // Show Error
-                            //if (attempts === 3)
-
-                            // Break uploading process
-                            if ([500, 422].includes(error.response.status)) {
-                                isNotGeneralError = false
-                                //this.$isSomethingWrong()
+                            
+                            // If this was a cancellation, don't retry
+                            if (axios.isCancel(error)) {
+                                throw error
                             }
+                            
+                            // If max attempts reached or critical error, fail
+                            if (attempts >= maxAttempts || [500, 422].includes(error.response?.status)) {
+                                throw error
+                            }
+                            
+                            // Wait before retry (exponential backoff)
+                            await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempts) * 1000))
+                        }
+                    }
+                }
 
-                            // Show Error
-                            if (attempts === 1)
-                                //this.$isSomethingWrong()
-                                store.commit('PROCESSING_FILE', false)
-                                store.commit('CLEAR_UPLOAD_PROGRESS')
+            } catch (error) {
+                // Remove cancel token from store
+                if (item.fileId) {
+                    store.commit('REMOVE_UPLOAD_CANCEL_TOKEN', item.fileId)
+                }
 
-                            // Break uploading process
-                           /* if ([500, 415].includes(error.response.status))
-                                isNotGeneralError = false*/
+                // Remove cancel event listener
+                events.$off('cancel-upload', cancelHandler)
 
-                            //store.commit('PROCESSING_FILE', false)
-                            //store.commit('CLEAR_UPLOAD_PROGRESS')
-                        })
-                } while (isNotGeneralError && attempts !== 0 && attempts !== 3)
-            } while (isNotGeneralError && chunks.length !== 0)
+                // Handle cancellation
+                if (axios.isCancel(error)) {
+                    console.log('Upload cancelled:', item.file.name)
+                    return
+                }
+
+                // Handle other errors
+                console.error('Upload failed:', error)
+                
+                // Reset processing state
+                store.commit('PROCESSING_FILE', false)
+                
+                // Continue with next file if available
+                if (store.getters.fileQueue.length > 1) {
+                    Vue.prototype.$handleUploading(store.getters.fileQueue[1])
+                } else {
+                    store.commit('CLEAR_UPLOAD_PROGRESS')
+                }
+            } finally {
+                // Clean up
+                if (item.fileId) {
+                    store.commit('REMOVE_UPLOAD_CANCEL_TOKEN', item.fileId)
+                }
+                events.$off('cancel-upload', cancelHandler)
+            }
         }
 
         Vue.prototype.$downloadFile = function (url, filename) {

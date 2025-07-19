@@ -20,9 +20,6 @@
 			</div>
 		</div>
 
-        <!--Upload Progressbar-->
-        <UploadProgress class="pt-3 pl-4" />
-
         <div style="margin-bottom: 2rem;"></div>
 
     </div>
@@ -30,14 +27,12 @@
 
 <script>
 import MobileActionButton from '../UI/Buttons/MobileActionButton'
-import UploadProgress from '../UI/Others/UploadProgress'
 import { mapGetters } from 'vuex'
 
 export default {
     name: 'FileActionsMobile',
     components: {
         MobileActionButton,
-        UploadProgress,
     },
     computed: {
         ...mapGetters(['isMultiSelectMode']),

@@ -31,20 +31,35 @@ export default {
         },
     },
     created() {
-        // Open called popup
-        events.$on('popup:open', ({ name }) => {
+        // Store event listener references for cleanup
+        this.popupOpenHandler = ({ name }) => {
             if (this.name === name) this.isVisibleWrapper = true
 
             if (this.name !== name) this.isVisibleWrapper = false
-        })
+        };
 
-        // Open called popup
-        events.$on('confirm:open', ({ name }) => {
+        this.confirmOpenHandler = ({ name }) => {
             if (this.name === name) this.isVisibleWrapper = true
-        })
+        };
 
-        // Close popup
-        events.$on('popup:close', () => (this.isVisibleWrapper = false))
+        this.popupCloseHandler = () => (this.isVisibleWrapper = false);
+
+        // Register event listeners
+        events.$on('popup:open', this.popupOpenHandler);
+        events.$on('confirm:open', this.confirmOpenHandler);
+        events.$on('popup:close', this.popupCloseHandler);
+    },
+    beforeDestroy() {
+        // Clean up event listeners to prevent memory leaks
+        if (this.popupOpenHandler) {
+            events.$off('popup:open', this.popupOpenHandler);
+        }
+        if (this.confirmOpenHandler) {
+            events.$off('confirm:open', this.confirmOpenHandler);
+        }
+        if (this.popupCloseHandler) {
+            events.$off('popup:close', this.popupCloseHandler);
+        }
     },
 }
 </script>

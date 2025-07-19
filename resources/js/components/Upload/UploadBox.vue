@@ -23,10 +23,10 @@
                         </div>
                         <div class="flex-1 min-w-0">
                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white">
-                                {{ headerTitle }}
+                                {{ $t ? $t('uploading_files') : 'Uploading files' }}
                             </h4>
                             <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                {{ headerSubtitle }}
+                                {{ uploadFileCounter }}
                             </p>
                         </div>
                     </div>
@@ -35,12 +35,12 @@
                         <!-- Progress Indicator -->
                         <div v-if="hasActiveUploads" class="flex items-center space-x-2">
                             <span class="text-xs font-medium text-gray-600 dark:text-gray-300">
-                                {{ Math.round(overallProgress) }}%
+                                {{ Math.round(fileBasedProgress) }}%
                             </span>
                             <div class="w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                 <div 
                                     class="h-full bg-theme rounded-full transition-all duration-300"
-                                    :style="{ width: overallProgress + '%' }"
+                                    :style="{ width: fileBasedProgress + '%' }"
                                 ></div>
                             </div>
                         </div>
@@ -93,7 +93,7 @@
                                 {{ $t ? $t('uploads') : 'Uploads' }}
                             </h3>
                             <p class="text-xs text-gray-500 dark:text-gray-400">
-                                {{ uploadSummary }}
+                                {{ uploadFileCounter }}
                             </p>
                         </div>
                     </div>
@@ -123,90 +123,57 @@
                 <div v-if="showOverallProgress" class="p-4 bg-gray-50 dark:bg-gray-800/50">
                     <div class="flex items-center justify-between mb-2">
                         <span class="text-xs font-medium text-gray-700 dark:text-gray-300">
-                            {{ $t ? $t('overall_progress') : 'Overall Progress' }}
+                            {{ uploadFileCounter }}
                         </span>
                         <span class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ Math.round(overallProgress) }}%
+                            {{ Math.round(fileBasedProgress) }}%
                         </span>
                     </div>
                     <ProgressBar 
-                        :progress="overallProgress"
+                        :progress="fileBasedProgress"
                         color="bg-theme"
                         height="h-1.5"
                         :animated="hasActiveUploads"
                         :striped="hasActiveUploads"
                     />
-                    
-                    <div v-if="currentFileName || estimatedTimeRemaining" class="flex items-center justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        <span v-if="currentFileName" class="truncate flex-1 mr-2">
-                            {{ currentFileName }}
-                        </span>
-                        <span v-if="estimatedTimeRemaining" class="flex-shrink-0">
-                            {{ estimatedTimeRemaining }}
-                        </span>
-                    </div>
                 </div>
                 
-                <!-- Quick File List -->
-                <div class="upload-file-list max-h-64 overflow-y-auto">
-                    <div v-if="displayFiles.length === 0" class="p-6 text-center">
-                        <UploadIcon size="32" class="mx-auto text-gray-400 mb-2" />
+                <!-- Upload Status -->
+                <div class="px-4 py-6 text-center">
+                    <div v-if="hasActiveUploads" class="space-y-2">
+                        <div class="flex items-center justify-center w-12 h-12 mx-auto rounded-full bg-theme/10">
+                            <UploadIcon size="24" class="text-theme animate-pulse" />
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">
+                            {{ currentUploadMessage }}
+                        </p>
+                    </div>
+                    
+                    <div v-else-if="allCompleted" class="space-y-2">
+                        <div class="flex items-center justify-center w-12 h-12 mx-auto rounded-full bg-green-100 dark:bg-green-900/20">
+                            <CheckIcon size="24" class="text-green-600 dark:text-green-400" />
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">
+                            {{ $t ? $t('all_files_uploaded') : 'All files uploaded successfully' }}
+                        </p>
+                    </div>
+                    
+                    <div v-else class="space-y-2">
+                        <UploadIcon size="32" class="mx-auto text-gray-400" />
                         <p class="text-xs text-gray-500 dark:text-gray-400">
                             {{ $t ? $t('no_uploads') : 'No uploads' }}
                         </p>
                     </div>
-                    
-                    <div v-else class="p-3 space-y-2">
-                        <FileUploadItem
-                            v-for="file in displayFiles"
-                            :key="file.id || file.name"
-                            :file="file"
-                            :progress="file.progress || 0"
-                            :status="file.status || 'pending'"
-                            :upload-speed="file.uploadSpeed"
-                            :time-remaining="file.timeRemaining"
-                            :compact="true"
-                            @cancel="cancelUpload(file)"
-                        />
-                        
-                        <!-- Show More Button -->
-                        <div v-if="hasMoreFiles" class="pt-2">
-                            <button 
-                                @click="showFullProgress"
-                                class="w-full text-xs text-theme hover:text-theme/80 font-medium py-2 transition-colors duration-200"
-                            >
-                                {{ $t ? $t('show_more_files', { count: additionalFilesCount }) : `Show ${additionalFilesCount} more files` }}
-                            </button>
-                        </div>
-                    </div>
                 </div>
                 
                 <!-- Action Buttons -->
-                <div v-if="hasActiveUploads || hasCompletedUploads" class="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                    <div class="flex items-center justify-between text-xs">
-                        <div class="flex space-x-3">
-                            <button 
-                                v-if="hasActiveUploads"
-                                @click="cancelAllUploads"
-                                class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium transition-colors duration-200"
-                            >
-                                {{ $t ? $t('cancel_all') : 'Cancel All' }}
-                            </button>
-                            
-                            <button 
-                                v-if="hasCompletedUploads"
-                                @click="clearCompleted"
-                                class="text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 font-medium transition-colors duration-200"
-                            >
-                                {{ $t ? $t('clear_completed') : 'Clear Completed' }}
-                            </button>
-                        </div>
-                        
+                <div v-if="hasActiveUploads" class="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <div class="flex items-center justify-center">
                         <button 
-                            @click="showFullProgress"
-                            class="text-theme hover:text-theme/80 font-medium transition-colors duration-200"
+                            @click="cancelAllUploads"
+                            class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium transition-colors duration-200 text-xs"
                         >
-                            {{ $t ? $t('view_details') : 'View Details' }}
+                            {{ $t ? $t('cancel_all') : 'Cancel All' }}
                         </button>
                     </div>
                 </div>
@@ -217,7 +184,6 @@
 
 <script>
 import ProgressBar from './ProgressBar.vue'
-import FileUploadItem from './FileUploadItem.vue'
 import { 
     UploadIcon, 
     XIcon, 
@@ -233,7 +199,6 @@ export default {
     name: 'UploadBox',
     components: {
         ProgressBar,
-        FileUploadItem,
         UploadIcon,
         XIcon,
         ChevronUpIcon,
@@ -279,33 +244,12 @@ export default {
             return !this.userManuallyClosed && (this.files.length > 0 || this.fileQueue.length > 0)
         },
         
-        displayFiles() {
-            // Show most recent files first, prioritize active uploads
-            const sortedFiles = [...this.files].sort((a, b) => {
-                // Active uploads first
-                const aActive = ['pending', 'uploading'].includes(a.status)
-                const bActive = ['pending', 'uploading'].includes(b.status)
-                
-                if (aActive && !bActive) return -1
-                if (!aActive && bActive) return 1
-                
-                // Then by upload order (newest first)
-                return (b.startTime || 0) - (a.startTime || 0)
-            })
-            
-            return sortedFiles.slice(0, this.maxDisplayFiles)
-        },
-        
-        hasMoreFiles() {
-            return this.files.length > this.maxDisplayFiles
-        },
-        
-        additionalFilesCount() {
-            return this.files.length - this.maxDisplayFiles
-        },
-        
         completedCount() {
             return this.files.filter(file => file.status === 'completed').length
+        },
+        
+        totalCount() {
+            return this.files.length || this.fileQueue.length
         },
         
         activeCount() {
@@ -329,82 +273,31 @@ export default {
         },
         
         allCompleted() {
-            return this.files.length > 0 && this.completedCount === this.files.length && !this.hasActiveUploads
+            return this.totalCount > 0 && this.completedCount === this.totalCount && !this.hasActiveUploads
         },
         
-        overallProgress() {
-            if (this.filesInQueueTotal > 0) {
-                return (this.filesInQueueUploaded / this.filesInQueueTotal) * 100
-            }
-            
-            if (this.files.length === 0) return 0
-            
-            const totalProgress = this.files.reduce((sum, file) => {
-                if (file.status === 'completed') return sum + 100
-                if (file.status === 'uploading') return sum + (file.progress || 0)
-                return sum
-            }, 0)
-            
-            return totalProgress / this.files.length
+        fileBasedProgress() {
+            if (this.totalCount === 0) return 0
+            return (this.completedCount / this.totalCount) * 100
         },
         
-        headerTitle() {
-            if (this.hasActiveUploads) {
-                return this.$t ? this.$t('uploading_files') : 'Uploading files...'
-            } else if (this.allCompleted) {
-                return this.$t ? this.$t('upload_completed') : 'Upload completed'
-            } else if (this.hasErrors) {
-                return this.$t ? this.$t('upload_errors') : 'Upload errors'
-            }
-            return this.$t ? this.$t('uploads') : 'Uploads'
+        uploadFileCounter() {
+            if (this.totalCount === 0) return ''
+            return `${this.completedCount} / ${this.totalCount} files`
         },
         
-        headerSubtitle() {
-            if (this.hasActiveUploads) {
-                const remaining = this.activeCount || this.fileQueue.length
-                return this.$t 
-                    ? this.$t('files_remaining', { count: remaining })
-                    : `${remaining} file${remaining !== 1 ? 's' : ''} remaining`
-            } else if (this.allCompleted) {
-                return this.$t 
-                    ? this.$t('files_uploaded_successfully', { count: this.files.length })
-                    : `${this.files.length} file${this.files.length !== 1 ? 's' : ''} uploaded`
-            }
-            
-            return this.$t 
-                ? this.$t('upload_status', { completed: this.completedCount, total: this.files.length })
-                : `${this.completedCount} of ${this.files.length} completed`
-        },
-        
-        uploadSummary() {
-            if (this.hasActiveUploads) {
-                return this.$t 
-                    ? this.$t('upload_in_progress')
-                    : 'Upload in progress'
-            } else if (this.allCompleted) {
-                return this.$t 
-                    ? this.$t('all_uploads_completed')
-                    : 'All uploads completed'
+        currentUploadMessage() {
+            const remaining = this.totalCount - this.completedCount
+            if (remaining === 1) {
+                return this.$t ? this.$t('uploading_last_file') : 'Uploading last file...'
             }
             return this.$t 
-                ? this.$t('upload_status_summary')
-                : 'Upload status'
-        },
-        
-        currentFileName() {
-            const currentFile = this.files.find(file => file.status === 'uploading')
-            return currentFile ? currentFile.name : null
-        },
-        
-        estimatedTimeRemaining() {
-            if (!this.hasActiveUploads) return null
-            
-            const activeFile = this.files.find(file => file.status === 'uploading' && file.timeRemaining)
-            return activeFile ? activeFile.timeRemaining : null
+                ? this.$t('uploading_files_remaining', { count: remaining })
+                : `Uploading ${remaining} files...`
         },
         
         showOverallProgress() {
-            return this.files.length > 0
+            return this.totalCount > 0
         }
     },
     watch: {
@@ -427,12 +320,12 @@ export default {
         allCompleted: {
             handler(completed) {
                 if (completed) {
-                    // Auto close after completion with longer delay
+                    // Auto close after completion with delay
                     setTimeout(() => {
                         if (this.allCompleted && !this.userManuallyExpanded) {
                             this.userManuallyClosed = true
                         }
-                    }, 10000)
+                    }, 3000) // Reduced delay from 10 seconds to 3 seconds
                 }
             }
         }
@@ -453,20 +346,12 @@ export default {
             this.isExpanded = false
         },
         
-        showFullProgress() {
-            this.$emit('show-full-progress')
-        },
-        
         cancelUpload(file) {
             this.$emit('cancel-upload', file)
         },
         
         cancelAllUploads() {
             this.$emit('cancel-all-uploads')
-        },
-        
-        clearCompleted() {
-            this.$emit('clear-completed')
         },
         
         // Reset state when new uploads start

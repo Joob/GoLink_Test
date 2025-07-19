@@ -20,7 +20,7 @@
 					</div>
 				</div>
 				<PopupActions>
-					<ButtonBase @click.native="closePopup" :button-style="buttonStyle" class="w-full">
+					<ButtonBase @click="closePopup" :button-style="buttonStyle" class="w-full">
 						{{ button }}
                     </ButtonBase>
 				</PopupActions>

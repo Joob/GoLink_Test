@@ -54,10 +54,10 @@
 
         <!--Actions-->
         <PopupActions>
-            <ButtonBase class="w-full" @click.native="$closePopup()" button-style="secondary">
+            <ButtonBase class="w-full" @click="$closePopup()" button-style="secondary">
                 {{ $t('cancel') }}
             </ButtonBase>
-            <ButtonBase class="w-full" @click.native="changeName" button-style="theme">
+            <ButtonBase class="w-full" @click="changeName" button-style="theme">
                 {{ $t('popup_share_edit.save') }}
             </ButtonBase>
         </PopupActions>

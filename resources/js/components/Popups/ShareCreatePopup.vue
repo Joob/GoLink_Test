@@ -163,12 +163,12 @@
 
         <!--Actions-->
         <PopupActions>
-            <ButtonBase v-if="!isGeneratedShared" class="w-full" @click.native="$closePopup()" button-style="secondary">
+            <ButtonBase v-if="!isGeneratedShared" class="w-full" @click="$closePopup()" button-style="secondary">
                 {{ $t('cancel') }}
             </ButtonBase>
             <ButtonBase
                 class="w-full"
-                @click.native="submitShareOptions"
+                @click="submitShareOptions"
                 button-style="theme"
                 :loading="isLoading"
                 :disabled="isLoading"

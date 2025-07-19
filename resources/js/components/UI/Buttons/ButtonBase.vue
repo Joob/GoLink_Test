@@ -1,5 +1,5 @@
 <template>
-    <button class="button-base" :class="buttonStyle" type="button">
+    <button class="button-base" :class="buttonStyle" type="button" @click="handleClick">
         <div v-if="loading" class="icon">
             <refresh-cw-icon size="16" class="animate-spin" />
         </div>
@@ -18,6 +18,14 @@ export default {
     components: {
         RefreshCwIcon,
     },
+    methods: {
+        handleClick(event) {
+            // Prevent event bubbling to parent elements
+            event.stopPropagation()
+            // Emit click event to parent component
+            this.$emit('click', event)
+        }
+    }
 }
 </script>
 

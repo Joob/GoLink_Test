@@ -36,10 +36,10 @@
 
         <!--Actions-->
         <PopupActions>
-            <ButtonBase class="w-full" @click.native="$closePopup()" button-style="secondary"
+            <ButtonBase class="w-full" @click="$closePopup()" button-style="secondary"
                 >{{ $t('cancel') }}
             </ButtonBase>
-            <ButtonBase class="w-full" @click.native="createFolder" button-style="theme"
+            <ButtonBase class="w-full" @click="createFolder" button-style="theme"
                 >{{ $t('popup_create_folder.title') }}
             </ButtonBase>
         </PopupActions>

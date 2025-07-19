@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Popup Button Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .popup { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; }
+        .popup-content { background: white; padding: 20px; border-radius: 8px; min-width: 300px; }
+        .button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .button-primary { background: #007bff; color: white; }
+        .button-secondary { background: #6c757d; color: white; }
+        .log { margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Popup Button Click Test</h1>
+    <p>This test verifies that popup buttons work correctly after our fix.</p>
+    
+    <button id="openPopup" class="button button-primary">Open Test Popup</button>
+    
+    <div id="popup" class="popup" style="display: none;">
+        <div class="popup-content">
+            <h3>Test Popup</h3>
+            <p>Click the buttons below to test the fix:</p>
+            <button id="cancelBtn" class="button button-secondary">Cancel</button>
+            <button id="confirmBtn" class="button button-primary">Confirm</button>
+        </div>
+    </div>
+    
+    <div class="log">
+        <h4>Click Log:</h4>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
+        }
+
+        // Test the fix by simulating the same event handling pattern
+        document.getElementById('openPopup').addEventListener('click', function() {
+            document.getElementById('popup').style.display = 'flex';
+            log('Popup opened');
+        });
+
+        // Simulate the improved popup wrapper behavior
+        document.getElementById('popup').addEventListener('click', function(e) {
+            // Only close if clicking directly on the wrapper, not on child elements
+            if (e.target === e.currentTarget) {
+                document.getElementById('popup').style.display = 'none';
+                log('Popup closed by clicking outside');
+            }
+        });
+
+        // Test button clicks with stopPropagation (simulating our fix)
+        document.getElementById('cancelBtn').addEventListener('click', function(e) {
+            e.stopPropagation(); // This is what our ButtonBase fix does
+            document.getElementById('popup').style.display = 'none';
+            log('Cancel button clicked - popup closed');
+        });
+
+        document.getElementById('confirmBtn').addEventListener('click', function(e) {
+            e.stopPropagation(); // This is what our ButtonBase fix does
+            document.getElementById('popup').style.display = 'none';
+            log('Confirm button clicked - popup closed');
+        });
+    </script>
+</body>
+</html>

@@ -89,17 +89,17 @@
 
 		<!--Actions-->
         <PopupActions v-if="!uploadRequest">
-            <ButtonBase class="w-full" @click.native="$closePopup()" button-style="secondary"
+            <ButtonBase class="w-full" @click="$closePopup()" button-style="secondary"
 			>{{ $t('cancel') }}
             </ButtonBase>
-            <ButtonBase class="w-full" @click.native="createUploadRequest" :loading="isLoading" button-style="theme"
+            <ButtonBase class="w-full" @click="createUploadRequest" :loading="isLoading" button-style="theme"
 			>{{ $t('create_request') }}
             </ButtonBase>
         </PopupActions>
 
 		<!--Actions-->
         <PopupActions v-if="uploadRequest">
-            <ButtonBase class="w-full" @click.native="$closePopup()" button-style="theme"
+            <ButtonBase class="w-full" @click="$closePopup()" button-style="theme"
 			>{{ $t('awesome_iam_done') }}
             </ButtonBase>
         </PopupActions>

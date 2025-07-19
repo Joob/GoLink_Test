@@ -20,12 +20,12 @@
         </PopupContent>
 
         <PopupActions>
-            <ButtonBase class="w-full" @click.native="$closePopup()" button-style="secondary">
+            <ButtonBase class="w-full" @click="$closePopup()" button-style="secondary">
                 {{ $t('cancel') }}
             </ButtonBase>
             <ButtonBase
                 class="w-full danger"
-                @click.native="deleteAllSessionsId"
+                @click="deleteAllSessionsId"
                 button-style="theme"
                 :loading="isLoading"
                 :disabled="isLoading"

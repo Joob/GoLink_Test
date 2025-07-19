@@ -40,12 +40,12 @@
 
         <!--Actions-->
         <PopupActions>
-            <ButtonBase class="w-full" @click.native="$closePopup()" button-style="secondary">
+            <ButtonBase class="w-full" @click="$closePopup()" button-style="secondary">
                 {{ $t('cancel') }}
             </ButtonBase>
             <ButtonBase
                 class="w-full"
-                @click.native="createLanguage"
+                @click="createLanguage"
                 button-style="theme"
                 :loading="isLoading"
                 :disabled="isLoading"

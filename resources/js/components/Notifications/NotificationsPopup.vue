@@ -7,7 +7,7 @@
         <PopupContent v-if="readNotifications && unreadNotifications">
 			<MobileActionButton
 				v-if="readNotifications.length || unreadNotifications.length"
-				@click.native="$store.dispatch('deleteAllNotifications')"
+				@click="$store.dispatch('deleteAllNotifications')"
 				icon="check-square"
 				class="mb-2 dark:!bg-4x-dark-foreground"
 			>
@@ -44,7 +44,7 @@
 
         <!--Actions-->
         <PopupActions>
-            <ButtonBase class="w-full" @click.native="$closePopup()" button-style="secondary">
+            <ButtonBase class="w-full" @click="$closePopup()" button-style="secondary">
                 {{ $t('close') }}
             </ButtonBase>
         </PopupActions>

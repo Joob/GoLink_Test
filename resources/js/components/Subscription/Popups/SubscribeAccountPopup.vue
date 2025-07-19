@@ -71,7 +71,7 @@
             </PopupContent>
 
             <PopupActions>
-                <ButtonBase class="w-full" @click.native="$closePopup()" button-style="secondary">
+                <ButtonBase class="w-full" @click="$closePopup()" button-style="secondary">
                     {{ $t('cancel_payment') }}
                 </ButtonBase>
             </PopupActions>
@@ -95,21 +95,21 @@
                         v-if="plan.data.attributes.interval === intervalPlanType"
                         :class="{ 'pointer-events-none opacity-50': userSubscribedPlanId === plan.data.id }"
                         :is-selected="selectedPlan && selectedPlan.data.id === plan.data.id"
-                        @click.native="selectPlan(plan)"
+                        @click="selectPlan(plan)"
                     />
                 </div>
             </PopupContent>
 
             <!--Actions-->
             <PopupActions>
-                <ButtonBase class="w-full" @click.native="$closePopup()" button-style="secondary"
+                <ButtonBase class="w-full" @click="$closePopup()" button-style="secondary"
                     >{{ $t('cancel') }}
                 </ButtonBase>
                 <ButtonBase
                     class="w-full"
                     v-if="plans && plans.data.length !== 0"
                     :button-style="buttonStyle"
-                    @click.native="isPaymentOptionPage = true"
+                    @click="isPaymentOptionPage = true"
                     >{{ $t('upgrade_account') }}
                 </ButtonBase>
             </PopupActions>

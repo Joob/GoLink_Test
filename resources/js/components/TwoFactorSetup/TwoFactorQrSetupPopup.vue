@@ -29,7 +29,7 @@
         </PopupContent>
 
         <PopupActions>
-            <ButtonBase @click.native="confirm2FaSetup" class="w-full" button-style="theme" :loading="isLoading">
+            <ButtonBase @click="confirm2FaSetup" class="w-full" button-style="theme" :loading="isLoading">
                 {{ $t('confirm_your_code') }}
             </ButtonBase>
         </PopupActions>

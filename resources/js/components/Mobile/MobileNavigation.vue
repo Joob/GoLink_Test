@@ -28,24 +28,30 @@
 
         <!--Menu links-->
         <MenuMobileGroup>
-            <!--User Storage-->
-            <div v-if="shouldShowStorageWarning" class="block px-5 pt-2">
-                <div class="rounded-lg bg-light-background px-3 py-1.5 dark:bg-4x-dark-foreground">
-                    <span class="text-sm font-semibold" style="color: orange">
-                        WARNING 10%
-                    </span>
-                    <br>
-                    -----
-                    <br>
-                    <span class="text-sm font-semibold" style="color: red">
-                        {{ storage.data.attributes.used }}
-                    </span>
-                    <br>
-                    <span class="text-sm font-bold">
-                        {{ $t('total_of', {capacity: storage.data.attributes.capacity}) }}
-                    </span>
+            <!--User Storage Warning - Corrigido-->
+            <div v-if="shouldShowStorageWarning && !clickedSubmenu" class="storage-warning-mobile">
+                <div 
+                    class="storage-warning-content-mobile"
+                    :title="$t('total_warning', { remaining: remainingStorage, percentage: remainingPercentage.toFixed(1) })"
+                >
+                    <div class="warning-header">
+                        <span class="warning-icon">⚠️</span>
+                    </div>
+                    
+                    <div class="storage-details">
+                        <div class="usage-info">
+                            <span class="label">{{ $t('used') }}:</span>
+                            <span class="value-used">{{ storage.data.attributes.used }}</span>
+                        </div>
+                        
+                        <div class="capacity-info">
+                            <span class="label">{{ $t('total') }}:</span>
+                            <span class="value-total">{{ storage.data.attributes.capacity }}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
+
             <!--Main navigation-->
             <OptionGroup v-if="!clickedSubmenu">
                 <Option
@@ -194,6 +200,7 @@ export default {
     },
     computed: {
         ...mapGetters(['config', 'user']),
+        
         storageUsedPercentage() {
             if (!this.storage?.data?.attributes?.used || !this.storage?.data?.attributes?.capacity) {
                 return 0;
@@ -205,15 +212,34 @@ export default {
             return (used / capacity) * 100;
         },
         
+        remainingPercentage() {
+            return 100 - this.storageUsedPercentage;
+        },
+        
+        remainingStorage() {
+            if (!this.storage?.data?.attributes?.used || !this.storage?.data?.attributes?.capacity) {
+                return '0 B';
+            }
+            
+            const used = parseFloat(this.storage.data.attributes.used);
+            const capacity = parseFloat(this.storage.data.attributes.capacity);
+            const remaining = capacity - used;
+            
+            return this.formatStorageSize(remaining);
+        },
+        
         shouldShowStorageWarning() {
             return this.config?.subscriptionType === 'fixed' && 
                 this.config?.storageLimit && 
                 this.storage?.data?.attributes && 
-                this.storageUsedPercentage >= 90;
+                this.remainingPercentage <= 10 &&
+                this.user; // Só mostrar se o usuário estiver logado
         },
+        
         isAdmin() {
             return this.user && this.user.data.attributes.role === 'admin'
         },
+        
         backTitle() {
             let location = {
                 settings: this.$t('settings'),
@@ -223,61 +249,425 @@ export default {
             return this.$t('go_back_from_x', {location: location[this.clickedSubmenu]})
         },
     },
+    
     data() {
         return {
             clickedSubmenu: undefined,
-            storage: { data: { attributes: { used: 0, capacity: 0 } } }, // Initialize with default values
+            storage: { data: { attributes: { used: 0, capacity: 0 } } },
             isLoading: true,
+            isNavigating: false,
+            storageInterval: null, // Adicionado para controlar o interval
+            isLoggingOut: false, // Flag para indicar se está fazendo logout
+            storageRequest: null,
         }
     },
+    
     methods: {
-        goToRoute(route) {
-            this.$router.push({ name: route })
-            this.clickedSubmenu = undefined
-        },
-        showSubmenu(name) {
-            this.clickedSubmenu = name
-        },
-        goToFiles() {
-            if (this.$route.name !== 'Files') this.$router.push({ name: 'Files' })
-
-            this.$getDataByLocation(1)
+        async goToRoute(route) {
+            if (this.isNavigating || this.isLoggingOut) return;
             
-            //this.$store.dispatch('getFolder')
+            try {
+                this.isNavigating = true;
+                this.clickedSubmenu = undefined;
+                
+                await this.$nextTick();
+                
+                if (this.$route.name !== route) {
+                    await this.$router.push({ name: route });
+                }
+                
+                this.closeMobileMenu();
+                await this.$nextTick();
+                this.$emit('navigation-completed', route);
+                
+            } catch (error) {
+                console.error('Erro durante a navegação:', error);
+            } finally {
+                setTimeout(() => {
+                    this.isNavigating = false;
+                }, 300);
+            }
         },
+        
+        showSubmenu(name) {
+            this.clickedSubmenu = name;
+        },
+        
+        async goToFiles() {
+            if (this.isNavigating || this.isLoggingOut) return;
+            
+            try {
+                this.isNavigating = true;
+                this.closeMobileMenu();
+                
+                if (this.$route.name !== 'Files') {
+                    await this.$router.push({ name: 'Files' });
+                }
+                
+                await this.$nextTick();
+                this.$getDataByLocation(1);
+                
+            } catch (error) {
+                console.error('Erro ao navegar para Files:', error);
+            } finally {
+                setTimeout(() => {
+                    this.isNavigating = false;
+                }, 300);
+            }
+        },
+        
         fetchStorageData() {
-            axios.get('/api/user/storage')
-                .then((response) => {
-                    this.storage = response.data || { data: { attributes: { used: 0, capacity: 0 } } }; // Fallback to default
-                })
-                .catch((error) => {
+            // Não fazer fetch se estiver fazendo logout, se não houver usuário, ou se o componente foi destruído
+            if (this.isLoggingOut || !this.user || this._isDestroyed || this.$isServer) {
+                return;
+            }
+
+            // Cancelar requisição anterior se ainda estiver pendente
+            if (this.storageRequest) {
+                this.storageRequest.cancel('New request initiated');
+            }
+
+            // Criar uma nova requisição cancelável
+            const CancelToken = axios.CancelToken;
+            this.storageRequest = CancelToken.source();
+
+            axios.get('/api/user/storage', {
+                cancelToken: this.storageRequest.token
+            })
+            .then((response) => {
+                // Verificações adicionais antes de atualizar os dados
+                if (!this.isLoggingOut && !this._isDestroyed && this.user) {
+                    this.storage = response.data || { data: { attributes: { used: 0, capacity: 0 } } };
+                }
+            })
+            .catch((error) => {
+                // Ignorar erros de cancelamento
+                if (axios.isCancel(error)) {
+                    return;
+                }
+                
+                // Só mostrar erro se não for 401 (não autenticado) ou se não estiver fazendo logout
+                if (error.response?.status !== 401 && !this.isLoggingOut && !this._isDestroyed) {
                     console.error('Error fetching storage data:', error);
-                    this.storage = { data: { attributes: { used: 0, capacity: 0 } } }; // Fallback on error
-                });
+                }
+                
+                // Resetar dados em caso de erro (mas só se ainda estiver logado)
+                if (!this.isLoggingOut && !this._isDestroyed && this.user) {
+                    this.storage = { data: { attributes: { used: 0, capacity: 0 } } };
+                }
+            })
+            .finally(() => {
+                // Limpar a referência da requisição
+                this.storageRequest = null;
+            });
         },
-        logOut() {
-            // Dispatch the logout action to the store
-            this.$store.dispatch('logOut');
+
+        async logOut() {
+            if (this.isNavigating || this.isLoggingOut) return;
+            
+            try {
+                this.isLoggingOut = true; // Marcar que está fazendo logout
+                this.isNavigating = true;
+                
+                // Cancelar qualquer requisição de storage pendente
+                if (this.storageRequest) {
+                    this.storageRequest.cancel('User logging out');
+                }
+                
+                // Limpar o interval antes do logout
+                this.clearStorageInterval();
+                
+                // Resetar dados de storage imediatamente
+                this.storage = { data: { attributes: { used: 0, capacity: 0 } } };
+                
+                this.closeMobileMenu();
+                await this.$nextTick();
+                
+                // Chamar a action de logout do Vuex
+                await this.$store.dispatch('logOut');
+                
+            } catch (error) {
+                console.error('Erro durante logout:', error);
+            } finally {
+                // Não resetar as flags aqui, pois o componente será destruído
+            }
+        },
+
+        // Método para limpar o interval
+        clearStorageInterval() {
+            if (this.storageInterval) {
+                clearInterval(this.storageInterval);
+                this.storageInterval = null;
+            }
+            
+            // Cancelar requisição pendente se existir
+            if (this.storageRequest) {
+                this.storageRequest.cancel('Interval cleared');
+                this.storageRequest = null;
+            }
+        },
+
+        // Método para iniciar o fetch de storage
+        startStorageFetch() {
+            // Só iniciar se houver usuário logado e não estiver fazendo logout
+            if (this.user && !this.isLoggingOut && !this._isDestroyed) {
+                this.fetchStorageData();
+                
+                // Configurar interval apenas se não existir e se houver usuário
+                if (!this.storageInterval) {
+                    this.storageInterval = setInterval(() => {
+                        // Verificação adicional antes de cada execução do interval
+                        if (this.user && !this.isLoggingOut && !this._isDestroyed) {
+                            this.fetchStorageData();
+                        } else {
+                            // Se as condições não forem mais atendidas, limpar o interval
+                            this.clearStorageInterval();
+                        }
+                    }, 10000);
+                }
+            }
+        },
+        
+        closeMobileMenu() {
+            if (this.$parent && typeof this.$parent.closeMobileMenu === 'function') {
+                this.$parent.closeMobileMenu();
+            } else {
+                this.$emit('close-mobile-menu');
+            }
+        },
+        
+        formatStorageSize(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            
+            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const k = 1024;
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + units[i];
+        },
+
+        // Método para limpar o interval
+        clearStorageInterval() {
+            if (this.storageInterval) {
+                clearInterval(this.storageInterval);
+                this.storageInterval = null;
+            }
+        },
+    },
+    
+    watch: {
+        '$route'(to, from) {
+            if (to.name !== from.name) {
+                this.clickedSubmenu = undefined;
+            }
+        },
+
+        // Watch para o usuário - parar/iniciar o fetch baseado no status de login
+        user: {
+            handler(newUser, oldUser) {
+                if (newUser && !this.isLoggingOut && !this._isDestroyed) {
+                    // Usuário logou - iniciar fetch
+                    this.startStorageFetch();
+                } else {
+                    // Usuário deslogou ou está fazendo logout - parar fetch
+                    this.clearStorageInterval();
+                    // Resetar dados de storage
+                    this.storage = { data: { attributes: { used: 0, capacity: 0 } } };
+                }
+            },
+            immediate: true
         }
     },
-// GoLink CHANGE HERE
+    
     created() {
-        // Call the function to fetch the storage data initially
-        this.fetchStorageData();
-
-        // Refresh the storage data and notifications every 10 second
-        setInterval(() => {
-            this.fetchStorageData();
-        }, 10000);
-
-        axios.get('/api/user/storage').then((response) => {
-            this.distribution = this.$mapStorageUsage(response.data)
-
-            this.storage = response.data
-
-            this.isLoading = false
-        })
+        // Só iniciar o fetch se houver usuário
+        if (this.user) {
+            this.startStorageFetch();
+        }
     },
-// GoLink END
+    
+    beforeDestroy() {
+        // Limpar interval quando o componente for destruído
+        this.clearStorageInterval();
+    }
 }
 </script>
+
+<style scoped lang="scss">
+// Storage Warning Styles para Mobile
+.storage-warning-mobile {
+    margin: 0.75rem 1.25rem;
+    padding: 0;
+    
+    .storage-warning-content-mobile {
+        background: linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(255, 165, 0, 0.1) 100%);
+        border: 1px solid rgba(220, 38, 38, 0.3);
+        border-radius: 0.75rem;
+        padding: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        
+        &:hover {
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.15) 0%, rgba(255, 165, 0, 0.15) 100%);
+            border-color: rgba(220, 38, 38, 0.4);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+        }
+        
+        .dark & {
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.15) 0%, rgba(255, 165, 0, 0.15) 100%);
+            border-color: rgba(220, 38, 38, 0.4);
+            
+            &:hover {
+                background: linear-gradient(135deg, rgba(220, 38, 38, 0.2) 0%, rgba(255, 165, 0, 0.2) 100%);
+                border-color: rgba(220, 38, 38, 0.5);
+            }
+        }
+        
+        .warning-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.75rem;
+            
+            .warning-icon {
+                font-size: 1.125rem;
+                margin-right: 0.5rem;
+                animation: pulse 2s infinite;
+            }
+            
+            .warning-title {
+                font-size: 0.875rem;
+                font-weight: bold;
+                color: #dc2626;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+        }
+        
+        .storage-details {
+            margin-bottom: 0.75rem;
+            
+            > div {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.375rem;
+                
+                &:last-child {
+                    margin-bottom: 0;
+                }
+                
+                .label {
+                    font-size: 0.75rem;
+                    color: #6b7280;
+                    font-weight: 500;
+                }
+                
+                .value-used {
+                    font-size: 0.75rem;
+                    font-weight: bold;
+                    color: #dc2626;
+                }
+                
+                .value-total {
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    color: #374151;
+                    
+                    .dark & {
+                        color: #d1d5db;
+                    }
+                }
+                
+                .value-remaining {
+                    font-size: 0.75rem;
+                    font-weight: bold;
+                    color: #dc2626;
+                    animation: blink 1.5s infinite;
+                }
+            }
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 0.5rem;
+            background-color: rgba(229, 231, 235, 0.8);
+            border-radius: 0.25rem;
+            overflow: hidden;
+            position: relative;
+            
+            .dark & {
+                background-color: rgba(55, 65, 81, 0.8);
+            }
+            
+            .progress-fill {
+                height: 100%;
+                background: linear-gradient(90deg, #dc2626 0%, #f59e0b 70%, #dc2626 100%);
+                border-radius: 0.25rem;
+                transition: width 0.5s ease;
+                position: relative;
+                
+                &::after {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: linear-gradient(
+                        90deg,
+                        transparent 0%,
+                        rgba(255, 255, 255, 0.3) 50%,
+                        transparent 100%
+                    );
+                    animation: shimmer 2s infinite;
+                }
+            }
+        }
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.05);
+    }
+}
+
+@keyframes blink {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+// Estados de navegação
+.navigating {
+    pointer-events: none;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+// Estado de logout
+.logging-out {
+    pointer-events: none;
+    opacity: 0.5;
+    transition: opacity 0.3s ease;
+}
+</style>

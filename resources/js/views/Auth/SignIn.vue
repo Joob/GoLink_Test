@@ -1,6 +1,5 @@
 <template>
     <div class="landing-page">
-
         <!--Navigation-->
         <Navigation class="page-wrapper medium"/>
 
@@ -66,11 +65,6 @@
 
             <!--Log in By Password-->
             <AuthContent name="sign-in" :visible="false">
-                <!--<Headline
-                    v-if="checkedAccount"
-                    :title="$t('page_sign_in.title', { name: checkedAccount.name })"
-                    :description="$t('page_sign_in.subtitle')"
-                >-->
                 <Headline
                     v-if="checkedAccount"
                     :title="$t('page_sign_in.title', { name: maskName(checkedAccount.name) })"
@@ -212,6 +206,18 @@
                         {{ $t('page_sign_in.resend_otp_code_button') }}
                     </b>
                 </span>
+
+                <!-- Display OTP status messages -->
+                <div v-if="otpStatus.is_in_cooldown" class="mt-4 text-center">
+                    <span class="text-sm text-red-600">
+                        Muitas tentativas. Aguarde {{ otpStatus.remaining_cooldown }} segundos antes de tentar novamente.
+                    </span>
+                </div>
+                <div v-else-if="otpStatus.attempts_used > 0" class="mt-4 text-center">
+                    <span class="text-sm text-gray-600">
+                        {{ otpStatus.attempts_used }}/5 tentativas utilizadas
+                    </span>
+                </div>
 
                 <div class="relative mt-10 h-12 w-full">
                     <Spinner v-if="isLoading" class="spinner" />
@@ -370,6 +376,21 @@
                 twoFactorCode: '',
                 twoFactorRecoveryCode: '',
                 turnstileInvalid: true,
+                otpSent: false,
+                lastOtpSentTime: null,
+                otpAttemptsUsed: 0,
+                cooldownStartTime: null,
+                cooldownDuration: 120000, // 2 minutes cooldown
+                otpValidityDuration: 300000, // 5 minutes OTP validity (adjust as needed)
+                otpStatus: {
+                    attempts_used: 0,
+                    is_in_cooldown: false,
+                    remaining_cooldown: 0,
+                    is_otp_valid: false,
+                    remaining_validity: 0,
+                    can_send_otp: true,
+                    remaining_wait: 0,
+                }
             }
         },
         methods: {
@@ -405,17 +426,6 @@
                     page.isVisible = page.$props.name === slug
                 })
             },
-            /*goToAuthPage(slug) {
-
-                this.$refs.auth.$children.forEach(page => {
-                        // Hide current step
-                        page.isVisible = false
-                    if (page.$props.name === slug) {
-                        // Go to next step
-                        page.isVisible = true
-                    }
-                })
-            },*/
             resendEmail() {
                 axios
                     .post('/api/user/verify', {
@@ -428,7 +438,191 @@
                         this.$isSomethingWrong()
                     })
             },
+            // Check if OTP is still valid (within validity period)
+            isOtpStillValid() {
+                if (!this.lastOtpSentTime) return false;
+                
+                const now = new Date().getTime();
+                const timeSinceOtp = now - this.lastOtpSentTime;
+                
+                return timeSinceOtp < this.otpValidityDuration;
+            },
+            // Get remaining OTP validity time
+            getRemainingOtpValidity() {
+                if (!this.lastOtpSentTime) return '';
+                
+                const now = new Date().getTime();
+                const timeSinceOtp = now - this.lastOtpSentTime;
+                const remaining = this.otpValidityDuration - timeSinceOtp;
+                
+                if (remaining <= 0) return '';
+                
+                const minutes = Math.floor(remaining / 60000);
+                const seconds = Math.floor((remaining % 60000) / 1000);
+                
+                if (minutes > 0) {
+                    return `${minutes}m ${seconds}s`;
+                } else {
+                    return `${seconds}s`;
+                }
+            },
+            // Get how long ago OTP was sent
+            getOtpAge() {
+                if (!this.lastOtpSentTime) return '';
+                
+                const now = new Date().getTime();
+                const timeSinceOtp = now - this.lastOtpSentTime;
+                
+                const minutes = Math.floor(timeSinceOtp / 60000);
+                const seconds = Math.floor((timeSinceOtp % 60000) / 1000);
+                
+                if (minutes > 0) {
+                    return `${minutes}m ${seconds}s`;
+                } else {
+                    return `${seconds}s`;
+                }
+            },
+            // Get remaining cooldown time in milliseconds
+            getRemainingCooldownTime() {
+                if (!this.cooldownStartTime) return 0;
+                
+                const now = new Date().getTime();
+                const timeSinceCooldown = now - this.cooldownStartTime;
+                const remaining = this.cooldownDuration - timeSinceCooldown;
+                
+                return remaining > 0 ? remaining : 0;
+            },
+            // Check if we can send OTP
+            canSendOtp() {
+                // If still in cooldown period after 5 attempts
+                if (this.getRemainingCooldownTime() > 0) {
+                    return false;
+                }
+                
+                // If cooldown period is over, reset attempts
+                if (this.cooldownStartTime && this.getRemainingCooldownTime() === 0) {
+                    this.resetOtpAttempts();
+                }
+                
+                // If OTP is still valid, don't send new one
+                if (this.isOtpStillValid()) {
+                    return false;
+                }
+                
+                // Check if we've hit the 5 attempt limit
+                if (this.otpAttemptsUsed >= 5) {
+                    // Start cooldown
+                    this.cooldownStartTime = new Date().getTime();
+                    return false;
+                }
+                
+                // Basic rate limiting between attempts (30 seconds)
+                if (this.lastOtpSentTime) {
+                    const now = new Date().getTime();
+                    const timeSinceLastOtp = now - this.lastOtpSentTime;
+                    const minimumInterval = 30000; // 30 seconds between attempts
+                    
+                    return timeSinceLastOtp > minimumInterval;
+                }
+                
+                return true;
+            },
+            // Reset attempts (but keep cooldown intact if active)
+            resetOtpAttempts() {
+                this.otpAttemptsUsed = 0;
+                // Don't reset lastOtpSentTime if OTP is still valid
+                if (!this.isOtpStillValid()) {
+                    this.lastOtpSentTime = null;
+                    this.otpSent = false;
+                }
+                // Only reset cooldown if it's expired
+                if (this.getRemainingCooldownTime() === 0) {
+                    this.cooldownStartTime = null;
+                }
+            },
+            // Full reset for new login session
+            fullResetOtpAttempts() {
+                this.otpAttemptsUsed = 0;
+                this.lastOtpSentTime = null;
+                this.otpSent = false;
+                this.cooldownStartTime = null;
+            },
+            async fetchOtpStatus() {
+                if (!this.token) return;
+
+                try {
+                    const response = await axios.get('/api/user/otp-status', {
+                        headers: {
+                            Authorization: 'Bearer ' + this.token
+                        }
+                    });
+                    this.otpStatus = response.data;
+                } catch (error) {
+                    console.error('Failed to fetch OTP status:', error);
+                }
+            },
+            // Send OTP with smart validity checking
+            async sendOtpCode() {
+                try {
+                    await axios.post('/api/user/send-otp-code', {}, {
+                        headers: {
+                            Authorization: 'Bearer ' + this.token
+                        }
+                    });
+                    
+                    this.goToAuthPage('otp-auth');
+                    await this.fetchOtpStatus();
+                    
+                } catch (error) {
+                    this.goToAuthPage('otp-auth');
+                    
+                    if (error.response?.data?.message) {
+                        events.$emit('toaster', {
+                            type: 'error',
+                            message: error.response.data.message,
+                        });
+                    }
+                    
+                    await this.fetchOtpStatus();
+                }
+            },
+            async resendOtpCode() {
+                if (this.isLoading) return;
+
+                this.isLoading = true;
+
+                try {
+                    await axios.post('/api/user/send-otp-code', {}, {
+                        headers: {
+                            Authorization: 'Bearer ' + this.token
+                        }
+                    });
+                    
+                    events.$emit('toaster', {
+                        type: 'success',
+                        message: 'Código OTP enviado com sucesso.',
+                    });
+                    
+                } catch (error) {
+                    let errorMessage = 'Erro ao enviar código OTP.';
+                    
+                    if (error.response?.data?.message) {
+                        errorMessage = error.response.data.message;
+                    }
+                    
+                    events.$emit('toaster', {
+                        type: 'error',
+                        message: errorMessage,
+                    });
+                } finally {
+                    this.isLoading = false;
+                    await this.fetchOtpStatus();
+                }
+            },
             async logIn() {
+                // Full reset on new login
+                this.fullResetOtpAttempts();
+                
                 // Validate fields
                 const isValid = await this.$refs.log_in.validate()
 
@@ -468,9 +662,8 @@
                         }
 
                         if (error.response.status == 500) {
-                            events.$emit('alert:open', {
-                                emoji: '🤔',
-                                title: this.$t('popup_signup_error.title'),
+                            events.$emit('toaster', {
+                                type: 'error',
                                 message: this.$t('popup_signup_error.message'),
                             })
                         }
@@ -508,6 +701,8 @@
                     .then(() => {
                         // End loading
                         this.isLoading = false
+                        // Reset attempts on successful authentication
+                        this.fullResetOtpAttempts();
                         // Set login state
                         this.$store.commit('SET_AUTHORIZED', true)
                         // Go to files page
@@ -543,7 +738,6 @@
 
                 if (!this.checkedAccount.verified) {
                     this.goToAuthPage('not-verified')
-
                     return
                 }
 
@@ -559,51 +753,19 @@
                     .then((response) => {
                         // End loading
                         this.isLoading = false
-                        // Send request to get user token
-                        axios.post('/api/user/send-otp-code', {}, {
-                                headers: {
-                                    Authorization: 'Bearer ' + this.token
-                                }
-                            })
-                            .then(() => {
+                        
+                        this.token = response.data.token
 
-                                // End loading
-                                this.isLoading = false
+                        // If 2FA is enabled and not already validated
+                        if (response.data.two_factor && !this.validSignIn) {
+                            this.validSignIn = true
+                            this.goToAuthPage('two-factor-authentication')
+                            this.$nextTick(() => this.$refs.twoFactorCodeInput.focus())
+                            return;
+                        }
 
-                                this.token = response.data.token
-
-                                // OTP Auth
-                                this.goToAuthPage('otp-auth')
-
-                                // If is enabled two factor authentication
-                                if (response.data.two_factor && !this.validSignIn) {
-                                    this.validSignIn = true
-
-                                    // OTP 2F
-                                    this.goToAuthPage('two-factor-authentication')
-
-                                    // Autofocus to input
-                                    this.$nextTick(() => this.$refs.twoFactorCodeInput.focus())
-                                }
-
-                                // If is disabled two factor authentication
-                                //if (!response.data.two_factor) {
-                                    // Set login state
-                                    //this.$store.commit('SET_AUTHORIZED', true)
-
-                                    // OTP Auth
-                                    //this.goToAuthPage('otp-auth')
-
-                                    // Go to files page
-                                    //this.proceedToAccount()
-                                //}
-                            })
-                            .catch((error) => {
-                                events.$emit('alert:open', {
-                                    title: this.$t('popup_failed_send_otp_code.title'),
-                                    message: this.$t('popup_failed_send_otp_code.message'),
-                                })
-                            })
+                        // Handle OTP sending with smart logic
+                        this.sendOtpCode();
                     })
                     .catch((error) => {
                         if (error.response.status == 422) {
@@ -614,9 +776,7 @@
 
                         // End loading
                         this.isLoading = false
-
                         return
-
                     })
             },
             async twoFactorChallenge(recovery) {
@@ -633,15 +793,8 @@
                         .post('/two-factor-challenge', payload)
                         .then(() => {
                             this.isLoading = false
-
-                            // OTP Auth
-                            //this.goToAuthPage('otp-auth')
-
-                            // Set login state
-                            this.$store.commit('SET_AUTHORIZED', true)
-
-                            // Go to files page
-                            this.proceedToAccount()
+                            // After 2FA success, send OTP
+                            this.sendOtpCode();
                         })
                         .catch((error) => {
                             if (error.response.status == 422) {
@@ -673,42 +826,6 @@
                 } else {
                     this.$router.push({ name: 'Files' })
                 }
-            },
-            async resendOtpCode() {
-                // Prevent multiple rapid requests
-                if (this.isLoading) return;
-
-                this.isLoading = true;
-
-                // Send request to get user token
-                axios
-                    .post('/api/user/send-otp-code', {}, {
-                        headers: {
-                            Authorization: 'Bearer ' + this.token
-                        }
-                    })
-                    .then(() => {
-                        this.isLoading = false;
-                        events.$emit('success:open', {
-                            title: this.$t('popup_success_send_otp_code.title'),
-                            message: this.$t('popup_success_send_otp_code.message'),
-                        })
-                    })
-                    .catch((error) => {
-                        this.isLoading = false;
-                        
-                        let errorMessage = this.$t('popup_failed_send_otp_code.message');
-                        
-                        // Handle rate limiting
-                        if (error.response.status === 429) {
-                            errorMessage = 'Too many requests. Please wait before requesting a new code.';
-                        }
-                        
-                        events.$emit('alert:open', {
-                            title: this.$t('popup_failed_send_otp_code.title'),
-                            message: errorMessage,
-                        })
-                    })
             },
         },
         mounted() {

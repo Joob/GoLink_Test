@@ -140,10 +140,16 @@ export default {
             this.$store.commit('CLIPBOARD_CLEAR')
         },
     },
-    mounted() {
-        // TODO: new scaledown effect
+    async mounted() {
+        // Verificar se o usuário está autenticado
+        if (!this.$store.getters.isAuthenticated) {
+            this.$router.push('/login')
+            return
+        }
+        
+        // Seu código existente
         events.$on('mobile-menu:show', () => (this.isScaledDown = true))
         events.$on('mobile-menu:hide', () => (this.isScaledDown = false))
-    },
+    }
 }
 </script>

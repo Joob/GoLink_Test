@@ -60,26 +60,24 @@
 
         <!--Logout-->
         <div class="mt-auto text-center">
-            <!--Storage-->
-            <div v-if="shouldShowStorageWarning" class="block px-5 pt-2">
-                <div class="text-theme inline-block cursor-pointer rounded-lg bg-light-300 bg-opacity-50 px-3 py-1 dark:bg-4x-dark-foreground">
-                    <b class="block text-xs font-bold leading-3" style="color: orange">
-                    {{ $t('total_warning') }}
-                    </b>                    -----
-                    <br>
-                    <b class="block text-xs font-bold leading-3" style="color: rgba(245, 7, 7, 0.849)">
-                    {{ updatedStorageUsed }}
-                    </b>
-                    <span class="text-xs text-gray-500">
-                    {{ $t('total_of', {capacity: storage.data.attributes.capacity}) }}
-                    </span>
+            <!--Storage Warning - Corrigido-->
+            <div v-if="shouldShowStorageWarning" class="storage-warning">
+                <div 
+                    class="storage-warning-content" 
+                    :title="$t('total_warning', { remaining: remainingStorage, percentage: remainingPercentage })"
+                >
+                    <div class="warning-icon">⚠️</div>
+                    <div class="storage-text">
+                        <!--<span class="warning-text">{{ $t('storage_warning_short') }}</span>-->
+                        <span class="usage-amount">{{ updatedStorageUsed }}</span>
+                        <span class="capacity-text">{{ storage.data.attributes.capacity }}</span>
+                        <!--<span class="remaining-text">{{ remainingStorage }} {{ $t('remaining') }}</span>-->
+                    </div>
                 </div>
             </div>
 
             <!--Apple/Android-->
-            <div
-                class="mt-6 block"
-            >
+            <div class="mt-6 block">
                 <div :title="$t('Apple/Android')" class="button-icon text-theme inline-block cursor-pointer rounded-xl p-3 hover:bg-light-300 dark:hover:bg-4x-dark-foreground">
                     <a href="https://codeberg.org/GoLink/" target="_blank">
                         <smartphone-icon size="20" alt="Apple/Android" />
@@ -87,9 +85,7 @@
                 </div>
             </div>
 
-            <div
-                class="mt-6 block"
-            >
+            <div class="mt-6 block">
                 <div :title="$t('version')" class="inline-block rounded-xl p-3 hover:bg-light-300 dark:hover:bg-4x-dark-foreground">
                     <b class="text-theme block text-xs font-bold leading-3">
                     {{ $t('v2.3.66') }}
@@ -107,7 +103,6 @@
                 <power-icon size="20"/>
             </div>
         </div>
-
     </nav>
 </template>
 
@@ -134,6 +129,7 @@ export default {
     },
     computed: {
         ...mapGetters(['isVisibleNavigationBars', 'isDarkMode', 'config', 'user', 'isVisibleNotificationCenter']),
+        
         storageUsedPercentage() {
             if (!this.storage?.data?.attributes?.used || !this.storage?.data?.attributes?.capacity) {
                 return 0;
@@ -145,15 +141,36 @@ export default {
             return (used / capacity) * 100;
         },
         
+        remainingPercentage() {
+            return 100 - this.storageUsedPercentage;
+        },
+        
+        remainingStorage() {
+            if (!this.storage?.data?.attributes?.used || !this.storage?.data?.attributes?.capacity) {
+                return '0';
+            }
+            
+            const used = parseFloat(this.storage.data.attributes.used);
+            const capacity = parseFloat(this.storage.data.attributes.capacity);
+            const remaining = capacity - used;
+            
+            // Formatar o valor com a mesma unidade da capacidade
+            return this.formatStorageSize(remaining);
+        },
+        
         shouldShowStorageWarning() {
+            // Mostrar aviso quando restam 10% ou menos do espaço disponível
             return this.config?.subscriptionType === 'fixed' && 
                 this.config?.storageLimit && 
                 this.storage?.data?.attributes && 
-                this.storageUsedPercentage >= 90;
+                this.remainingPercentage <= 10 &&
+                this.user; // Só mostrar se o usuário estiver logado
         },
+        
         updatedStorageUsed() {
             return this.storage?.data?.attributes?.used || '';
         },
+        
         navigation() {
             if (this.user?.data?.attributes?.role === 'admin') {
                 return [
@@ -194,57 +211,246 @@ export default {
             ];
         },
     },
+    
 	data() {
 		return {
             isNotificationCenter: false,
-            storage: { data: { attributes: { used: 0, capacity: 0 } } }, // Initialize with default values
+            storage: { data: { attributes: { used: 0, capacity: 0 } } },
             isLoading: true,
+            storageInterval: null,
+            storageRequest: null,
+            isLoggingOut: false,
         };
 	},
+    
     methods: {
         isSection(section) {
             return this.$route.matched[0].name === section
         },
+        
         fetchStorageData() {
-            axios.get('/api/user/storage')
-                .then((response) => {
-                    this.storage = response.data || { data: { attributes: { used: 0, capacity: 0 } } }; // Fallback to default
-                })
-                .catch((error) => {
+            // Não fazer fetch se não houver usuário, se estiver fazendo logout ou se o componente foi destruído
+            if (!this.user || this.isLoggingOut || this._isDestroyed || this.$isServer) {
+                return;
+            }
+
+            // Cancelar requisição anterior se ainda estiver pendente
+            if (this.storageRequest) {
+                this.storageRequest.cancel('New request initiated');
+            }
+
+            // Criar uma nova requisição cancelável
+            const CancelToken = axios.CancelToken;
+            this.storageRequest = CancelToken.source();
+
+            axios.get('/api/user/storage', {
+                cancelToken: this.storageRequest.token
+            })
+            .then((response) => {
+                // Verificações adicionais antes de atualizar os dados
+                if (!this.isLoggingOut && !this._isDestroyed && this.user) {
+                    this.storage = response.data || { data: { attributes: { used: 0, capacity: 0 } } };
+                    this.distribution = this.$mapStorageUsage(response.data);
+                    this.isLoading = false;
+                }
+            })
+            .catch((error) => {
+                // Ignorar erros de cancelamento
+                if (axios.isCancel(error)) {
+                    return;
+                }
+                
+                // Só mostrar erro se não for 401 (não autenticado) ou se não estiver fazendo logout
+                if (error.response?.status !== 401 && !this.isLoggingOut && !this._isDestroyed) {
                     console.error('Error fetching storage data:', error);
-                    this.storage = { data: { attributes: { used: 0, capacity: 0 } } }; // Fallback on error
-                });
+                }
+                
+                // Resetar dados em caso de erro (mas só se ainda estiver logado)
+                if (!this.isLoggingOut && !this._isDestroyed && this.user) {
+                    this.storage = { data: { attributes: { used: 0, capacity: 0 } } };
+                }
+            })
+            .finally(() => {
+                // Limpar a referência da requisição
+                this.storageRequest = null;
+            });
+        },
+        
+        formatStorageSize(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            
+            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const k = 1024;
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + units[i];
+        },
+
+        // Método para limpar o interval
+        clearStorageInterval() {
+            if (this.storageInterval) {
+                clearInterval(this.storageInterval);
+                this.storageInterval = null;
+            }
+            
+            // Cancelar requisição pendente se existir
+            if (this.storageRequest) {
+                this.storageRequest.cancel('Interval cleared');
+                this.storageRequest = null;
+            }
+        },
+
+        // Método para iniciar o fetch de storage
+        startStorageFetch() {
+            // Só iniciar se houver usuário logado e não estiver fazendo logout
+            if (this.user && !this.isLoggingOut && !this._isDestroyed) {
+                this.fetchStorageData();
+                
+                // Configurar interval apenas se não existir e se houver usuário
+                if (!this.storageInterval) {
+                    this.storageInterval = setInterval(() => {
+                        // Verificação adicional antes de cada execução do interval
+                        if (this.user && !this.isLoggingOut && !this._isDestroyed) {
+                            this.fetchStorageData();
+                        } else {
+                            // Se as condições não forem mais atendidas, limpar o interval
+                            this.clearStorageInterval();
+                        }
+                    }, 10000);
+                }
+            }
         }
     },
+    
+    watch: {
+        // Watch para o usuário - parar/iniciar o fetch baseado no status de login
+        user: {
+            handler(newUser, oldUser) {
+                if (newUser && !this.isLoggingOut && !this._isDestroyed) {
+                    // Usuário logou - iniciar fetch
+                    this.startStorageFetch();
+                } else {
+                    // Usuário deslogou ou está fazendo logout - parar fetch
+                    this.clearStorageInterval();
+                    // Resetar dados de storage
+                    this.storage = { data: { attributes: { used: 0, capacity: 0 } } };
+                    this.isLoading = true;
+                }
+            },
+            immediate: true
+        }
+    },
+    
     mounted() {
         this.$store.dispatch('getAppData')
     },
+    
     created() {
-        // Call the function to fetch the storage data initially
-        this.fetchStorageData();
-
-        // Refresh the storage data and notifications every 10 second
-        setInterval(() => {
-            this.fetchStorageData();
-        }, 10000);
-
-        axios.get('/api/user/storage').then((response) => {
-            this.distribution = this.$mapStorageUsage(response.data)
-
-            this.storage = response.data
-
-            this.isLoading = false
-        })
+        // Só iniciar o fetch se houver usuário
+        if (this.user) {
+            this.startStorageFetch();
+        }
     },
+
+    beforeDestroy() {
+        // Limpar interval quando o componente for destruído
+        this.clearStorageInterval();
+        this.isLoggingOut = true; // Marcar que está sendo destruído
+    }
 }
 </script>
 
 <style scoped lang="scss">
 @import '../../../sass/vuefilemanager/variables';
 
-/*.menu-bar {
-    background: linear-gradient(180deg, rgba(246, 245, 241, 0.8) 0%, rgba(243, 244, 246, 0.8) 100%);
-}*/
+// Storage Warning Styles - Atualizado
+.storage-warning {
+    margin-top: 1rem;
+    padding: 0.25rem;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    
+    .storage-warning-content {
+        background: rgba(220, 38, 38, 0.1);
+        border: 1px solid rgba(220, 38, 38, 0.3);
+        border-radius: 0.5rem;
+        padding: 0.4rem 0.2rem;
+        text-align: center;
+        position: relative;
+        box-sizing: border-box;
+        width: 100%;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        
+        &:hover {
+            background: rgba(220, 38, 38, 0.15);
+            border-color: rgba(220, 38, 38, 0.4);
+        }
+        
+        .dark & {
+            background: rgba(220, 38, 38, 0.15);
+            border-color: rgba(220, 38, 38, 0.4);
+            
+            &:hover {
+                background: rgba(220, 38, 38, 0.2);
+                border-color: rgba(220, 38, 38, 0.5);
+            }
+        }
+        
+        .warning-icon {
+            font-size: 0.75rem;
+            margin-bottom: 0.2rem;
+            animation: pulse 2s infinite;
+        }
+        
+        .storage-text {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.1rem;
+            
+            .warning-text {
+                font-size: 0.55rem;
+                font-weight: bold;
+                color: #dc2626;
+                line-height: 1;
+                text-transform: uppercase;
+            }
+            
+            .usage-amount {
+                font-size: 0.6rem;
+                font-weight: bold;
+                color: #dc2626;
+                line-height: 1;
+            }
+            
+            .capacity-text {
+                font-size: 0.5rem;
+                color: #6b7280;
+                line-height: 1;
+                word-break: break-all;
+            }
+            
+            .remaining-text {
+                font-size: 0.45rem;
+                color: #dc2626;
+                font-weight: 600;
+                line-height: 1;
+                margin-top: 0.1rem;
+            }
+        }
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
 
 .router-link-active {
     &.home .button-icon {

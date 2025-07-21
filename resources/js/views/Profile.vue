@@ -4,29 +4,29 @@
         <FilePreview />
         <Spotlight />
 
-		<!--Spotlight Addons-->
-		<CreateUploadRequestPopup />
-		<CreateTeamFolderPopup />
-		<NotificationsPopup />
-		<RemoteUploadPopup />
+        <!--Spotlight Addons-->
+        <CreateUploadRequestPopup />
+        <CreateTeamFolderPopup />
+        <NotificationsPopup />
+        <RemoteUploadPopup />
 
-        <ConfirmPopup />
-        <ConfirmPassword />
+        <ConfirmPopup v-if="!isLoading && user" />
+        <ConfirmPassword v-if="!isLoading && user" />
 
         <!--2FA popups-->
-        <TwoFactorRecoveryCodesPopup />
-        <TwoFactorQrSetupPopup />
+        <TwoFactorRecoveryCodesPopup v-if="!isLoading && user" />
+        <TwoFactorQrSetupPopup v-if="!isLoading && user" />
 
         <!--Access Token Popup-->
-        <CreatePersonalTokenPopup />
+        <CreatePersonalTokenPopup v-if="!isLoading && user" />
 
         <!--Delete All Sessions ID Popup-->
-        <DeleteAllSessionsIdPopup />
+        <DeleteAllSessionsIdPopup v-if="!isLoading && user" />
 
         <!--Payments Popup-->
-        <SubscribeAccountPopup v-if="config.subscriptionType === 'fixed'" />
-		<ChangeSubscriptionPopup v-if="config.subscriptionType === 'fixed'" />
-        <ChargePaymentPopup v-if="config.subscriptionType === 'metered'" />
+        <SubscribeAccountPopup v-if="!isLoading && user && config.subscriptionType === 'fixed'" />
+        <ChangeSubscriptionPopup v-if="!isLoading && user && config.subscriptionType === 'fixed'" />
+        <ChargePaymentPopup v-if="!isLoading && user && config.subscriptionType === 'metered'" />
 
         <!--Navigations-->
         <MobileNavigation />
@@ -101,28 +101,28 @@ import RemoteUploadPopup from "../components/RemoteUpload/RemoteUploadPopup";
 export default {
     name: 'Settings',
     components: {
-    RemoteUploadPopup,
-    NotificationsPopup,
-    ChangeSubscriptionPopup,
-    CreateTeamFolderPopup,
-    CreateUploadRequestPopup,
-    MobileNavigationToolbar,
-    MobileNavigation,
-    ConfirmPassword,
-    ChargePaymentPopup,
-    SubscribeAccountPopup,
-    ConfirmPopup,
-    CardNavigation,
-    FilePreview,
-    Spotlight,
-    TwoFactorRecoveryCodesPopup,
-    CreatePersonalTokenPopup,
-    DeleteAllSessionsIdPopup,
-    TwoFactorQrSetupPopup,
-    AvatarInput,
-    ColorLabel,
-    Spinner
-},
+        RemoteUploadPopup,
+        NotificationsPopup,
+        ChangeSubscriptionPopup,
+        CreateTeamFolderPopup,
+        CreateUploadRequestPopup,
+        MobileNavigationToolbar,
+        MobileNavigation,
+        ConfirmPassword,
+        ChargePaymentPopup,
+        SubscribeAccountPopup,
+        ConfirmPopup,
+        CardNavigation,
+        FilePreview,
+        Spotlight,
+        TwoFactorRecoveryCodesPopup,
+        CreatePersonalTokenPopup,
+        DeleteAllSessionsIdPopup,
+        TwoFactorQrSetupPopup,
+        AvatarInput,
+        ColorLabel,
+        Spinner
+    },
     computed: {
         ...mapGetters(['config', 'user']),
         subscriptionStatus() {
@@ -161,8 +161,30 @@ export default {
     data() {
         return {
             avatar: undefined,
-            isLoading: false,
+            isLoading: true, // Inicia como true
         }
     },
+    async mounted() {
+        // Aguarda a inicialização completa antes de renderizar os popups
+        await this.$nextTick()
+        
+        // Pequeno delay para garantir que tudo está carregado
+        setTimeout(() => {
+            this.isLoading = false
+        }, 100)
+    },
+    watch: {
+        // Observa mudanças no user para garantir que os popups sejam renderizados
+        user: {
+            handler(newUser) {
+                if (newUser && this.isLoading) {
+                    this.$nextTick(() => {
+                        this.isLoading = false
+                    })
+                }
+            },
+            immediate: true
+        }
+    }
 }
 </script>

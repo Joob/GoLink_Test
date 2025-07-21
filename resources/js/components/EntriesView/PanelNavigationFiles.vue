@@ -78,13 +78,13 @@
                             }"
                         />
                         <span
-                            class="button-icon inline-block cursor-pointer rounded-lg sm:p-2 hover:bg-light-300 dark:hover:bg-4x-dark-foreground max-w-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-bold"
+                            class="button-icon inline-block cursor-pointer rounded-lg sm:p-2 hover:bg-light-300 dark:hover:bg-4x-dark-foreground max-w-32 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-bold"
                             :class="{ 'text-theme': $route.params.id === folder.data.id }"
                         >
                             {{ folder.data.attributes.name }}
                         </span>
                     </div>
-                    <div @click.stop="$removeFavourite(folder)" class="inline-block cursor-pointer rounded-lg sm:p-2 hover:bg-light-300 dark:hover:bg-4x-dark-foreground -m-2 p-2">
+                    <div @click.stop="removeFavourite(folder)" class="inline-block cursor-pointer rounded-lg sm:p-2 hover:bg-light-300 dark:hover:bg-4x-dark-foreground -m-2 p-2">
                         <x-icon size="12" class="mr-5 opacity-0 group-hover:opacity-100" />
                     </div>
                 </div>
@@ -200,6 +200,9 @@ export default {
         }
     },
     methods: {
+        removeFavourite(folder) {
+            this.$store.dispatch('removeFromFavourites', folder)
+        },
         resetData() {
             this.$store.commit('SET_CURRENT_TEAM_FOLDER', null)
             this.$store.commit('CLIPBOARD_CLEAR')

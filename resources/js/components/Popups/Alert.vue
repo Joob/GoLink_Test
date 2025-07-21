@@ -20,7 +20,7 @@
 					</div>
 				</div>
 				<PopupActions>
-					<ButtonBase @click.native="closePopup" :button-style="buttonStyle" class="w-full">
+					<ButtonBase @click.native="closePopup" :button-style="buttonStyle" class="w-full" :disabled="isProcessing">
 						{{ button }}
                     </ButtonBase>
 				</PopupActions>
@@ -49,23 +49,33 @@ export default {
             button: undefined,
 			isSuccess: undefined,
 			isAlert: undefined,
+            isProcessing: false,
         }
     },
     methods: {
         closePopup() {
-            events.$emit('popup:close')
+            // Prevent rapid multiple clicks
+            if (this.isProcessing) return;
+            this.isProcessing = true;
+            
+            events.$emit('popup:close');
+            
+            // Reset processing state after a short delay
+            setTimeout(() => {
+                this.isProcessing = false;
+            }, 300);
         },
     },
     mounted() {
-        // Show alert
-        events.$on('alert:open', (args) => {
+        // Store event listener references for cleanup
+        this.alertOpenHandler = (args) => {
             this.isVisibleWrapper = true
             this.isAlert = true
 
             this.title = args.title || undefined
             this.message = args.message || undefined
 
-            this.button = this.$te('alerts.error_confirm') ? this.$t('alerts.error_confirm') : 'That’s horrible!'
+            this.button = this.$te('alerts.error_confirm') ? this.$t('alerts.error_confirm') : 'Thats horrible!'
             this.buttonStyle = 'danger'
 
             if (args.buttonStyle) {
@@ -75,10 +85,9 @@ export default {
             if (args.button) {
                 this.button = args.button
             }
-        })
+        };
 
-        // Show alert
-        events.$on('success:open', (args) => {
+        this.successOpenHandler = (args) => {
             this.isVisibleWrapper = true
 			this.isSuccess = true
 
@@ -87,14 +96,31 @@ export default {
 
             this.button = this.$t('alerts.success_confirm')
             this.buttonStyle = 'theme'
-        })
+        };
 
-        // Close popup
-        events.$on('popup:close', () => {
+        this.popupCloseHandler = () => {
             this.isVisibleWrapper = false
             this.isSuccess = undefined
             this.isAlert = undefined
-        })
+            this.isProcessing = false
+        };
+
+        // Register event listeners
+        events.$on('alert:open', this.alertOpenHandler);
+        events.$on('success:open', this.successOpenHandler);
+        events.$on('popup:close', this.popupCloseHandler);
+    },
+    beforeDestroy() {
+        // Clean up event listeners to prevent memory leaks
+        if (this.alertOpenHandler) {
+            events.$off('alert:open', this.alertOpenHandler);
+        }
+        if (this.successOpenHandler) {
+            events.$off('success:open', this.successOpenHandler);
+        }
+        if (this.popupCloseHandler) {
+            events.$off('popup:close', this.popupCloseHandler);
+        }
     },
 }
 </script>

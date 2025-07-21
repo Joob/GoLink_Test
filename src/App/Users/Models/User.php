@@ -65,6 +65,14 @@ class User extends Authenticatable implements MustVerifyEmail
         'oauth_provider',
         'otp_code',
         'otp_expiration',
+        'otp_attempts_used',
+        'last_otp_sent_at',
+        'otp_cooldown_start_at',
+    ];
+
+    protected $dates = [
+        'last_otp_sent_at',
+        'otp_cooldown_start_at',
     ];
 
     protected $hidden = [
@@ -141,6 +149,185 @@ class User extends Authenticatable implements MustVerifyEmail
     public function settings(): HasOne
     {
         return $this->hasOne(UserSetting::class);
+    }
+
+    public function isInOtpCooldown(): bool
+    {
+        if (!$this->otp_cooldown_start_at) {
+            return false;
+        }
+
+        $cooldownDuration = 120; // 2 minutes in seconds
+        return $this->otp_cooldown_start_at->addSeconds($cooldownDuration)->isFuture();
+    }
+
+    public function getRemainingCooldownTime(): int
+    {
+        if (!$this->isInOtpCooldown()) {
+            return 0;
+        }
+
+        $cooldownDuration = 120; // 2 minutes
+        $elapsed = now()->diffInSeconds($this->otp_cooldown_start_at);
+        return max(0, $cooldownDuration - $elapsed);
+    }
+
+    public function canSendOtp(): bool
+    {
+        // If in cooldown period
+        if ($this->isInOtpCooldown()) {
+            return false;
+        }
+
+        // Reset attempts if cooldown period is over
+        if ($this->otp_cooldown_start_at && !$this->isInOtpCooldown()) {
+            $this->resetOtpAttempts();
+        }
+
+        // Check if reached maximum attempts
+        if ($this->otp_attempts_used >= 5) {
+            $this->startOtpCooldown();
+            return false;
+        }
+
+        // Basic rate limiting between attempts (30 seconds)
+        if ($this->last_otp_sent_at) {
+            $minimumInterval = 30; // 30 seconds
+            return $this->last_otp_sent_at->addSeconds($minimumInterval)->isPast();
+        }
+
+        return true;
+    }
+
+    public function isOtpStillValid(): bool
+    {
+        if (!$this->otp_code || !$this->last_otp_sent_at) {
+            return false;
+        }
+
+        $validityDuration = 300; // 5 minutes
+        return $this->last_otp_sent_at->addSeconds($validityDuration)->isFuture();
+    }
+
+    /**
+     * Start cooldown period
+     */
+    public function startOtpCooldown(): void
+    {
+        $this->update([
+            'otp_cooldown_start_at' => now()
+        ]);
+    }
+
+    /**
+     * Reset OTP attempts
+     */
+    public function resetOtpAttempts(): void
+    {
+        $this->update([
+            'otp_attempts_used' => 0,
+            'otp_cooldown_start_at' => null,
+        ]);
+    }
+
+    /**
+     * Full reset for new login session
+     */
+    public function fullResetOtpAttempts(): void
+    {
+        $this->update([
+            'otp_attempts_used' => 0,
+            'last_otp_sent_at' => null,
+            'otp_cooldown_start_at' => null,
+        ]);
+    }
+
+    /**
+     * Increment OTP attempts
+     */
+    public function incrementOtpAttempts(): void
+    {
+        $this->increment('otp_attempts_used');
+        
+        // Start cooldown if reached 5 attempts
+        if ($this->otp_attempts_used >= 5) {
+            $this->startOtpCooldown();
+        }
+    }
+
+    /**
+     * Send new OTP code with rate limiting
+     */
+    public function sendNewOtpCodeWithRateLimit(): array
+    {
+        // Check if OTP is still valid
+        if ($this->isOtpStillValid()) {
+            $remainingTime = $this->getRemainingOtpValidity();
+            
+            return [
+                'success' => false,
+                'error' => 'valid_otp_exists',
+                'message' => "You already have a valid OTP code. Time remaining: {$remainingTime} seconds.",
+                'remaining_validity' => $this->getRemainingOtpValidity()
+            ];
+        }
+
+        // Check if can send OTP
+        if (!$this->canSendOtp()) {
+            if ($this->isInOtpCooldown()) {
+                return [
+                    'success' => false,
+                    'error' => 'cooldown_active',
+                    'message' => 'You have exceeded the limit of 5 attempts.',
+                    'remaining_cooldown' => $this->getRemainingCooldownTime()
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'error' => 'rate_limited',
+                    'message' => 'Please wait before requesting a new code.',
+                    'remaining_wait' => $this->getRemainingWaitTime()
+                ];
+            }
+        }
+
+        // Send OTP
+        $this->sendNewOtpCode();
+        $this->update(['last_otp_sent_at' => now()]);
+        $this->incrementOtpAttempts();
+
+        return [
+            'success' => true,
+            'message' => 'OTP code sent successfully.'
+        ];
+    }
+
+    /**
+     * Get remaining OTP validity time in seconds
+     */
+    public function getRemainingOtpValidity(): int
+    {
+        if (!$this->isOtpStillValid()) {
+            return 0;
+        }
+
+        $validityDuration = 300; // 5 minutes
+        $elapsed = now()->diffInSeconds($this->last_otp_sent_at);
+        return max(0, $validityDuration - $elapsed);
+    }
+
+    /**
+     * Get remaining wait time before next OTP request
+     */
+    public function getRemainingWaitTime(): int
+    {
+        if (!$this->last_otp_sent_at) {
+            return 0;
+        }
+
+        $minimumInterval = 30; // 30 seconds
+        $elapsed = now()->diffInSeconds($this->last_otp_sent_at);
+        return max(0, $minimumInterval - $elapsed);
     }
 
     protected function generateOtpCode(): string

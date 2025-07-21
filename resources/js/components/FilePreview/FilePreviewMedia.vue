@@ -153,22 +153,26 @@ export default {
         },
         checkGroupInView: _.debounce(function () {
             this.files.forEach((file, index) => {
-                let element = document.getElementById(`group-${file.data.id}`).getBoundingClientRect()
-                let scrollBox = document.getElementById('group-box').getBoundingClientRect()
+                const groupEl = document.getElementById(`group-${file.data.id}`);
+                const scrollBoxEl = document.getElementById('group-box');
+                if (!groupEl || !scrollBoxEl) return;
+
+                let element = groupEl.getBoundingClientRect();
+                let scrollBox = scrollBoxEl.getBoundingClientRect();
 
                 // Get video
-                const video = document.querySelector(`#group-${file.data.id} video`)
+                const video = document.querySelector(`#group-${file.data.id} video`);
 
                 // Pause video when playing
                 if (video && !video.paused) {
-                    video.pause()
+                    video.pause();
                 }
 
                 // Check if the group is in the viewport of group-box
                 if (element.left === scrollBox.left) {
-                    this.currentIndex = index
+                    this.currentIndex = index;
                 }
-            })
+            });
         }, 50),
         getFilesForView() {
             let requestedFile = this.clipboard[0]

@@ -77,10 +77,12 @@ export default {
     this.isVisible = !this.isVisible
 
     if (this.isVisible) {
-        let container = document.getElementById('folder-actions').getBoundingClientRect()
-
-        this.positionX = container.x
-        this.positionY = container.y + 20
+        let container = document.getElementById('folder-actions')
+        if (container) {
+            let rect = container.getBoundingClientRect()
+            this.positionX = rect.x
+            this.positionY = rect.y + 20
+        }
     }
 }
     },

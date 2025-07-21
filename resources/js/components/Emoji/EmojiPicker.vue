@@ -134,14 +134,18 @@ export default {
     methods: {
         checkGroupInView: _.debounce(function () {
             this.emojis.groups.forEach((group) => {
-                let element = document.getElementById(`group-${group.name}`).getBoundingClientRect()
-                let groupBox = document.getElementById('group-box').getBoundingClientRect()
+                const groupEl = document.getElementById(`group-${group.name}`);
+                const groupBoxEl = document.getElementById('group-box');
+                if (!groupEl || !groupBoxEl) return;
+
+                let element = groupEl.getBoundingClientRect();
+                let groupBox = groupBoxEl.getBoundingClientRect();
 
                 // Check if the group is in the viewport of group-box
                 if (element.top < groupBox.top && element.bottom > groupBox.top) {
-                    this.groupInView = group.name
+                    this.groupInView = group.name;
                 }
-            })
+            });
         }, 300),
         scrollToGroup(name) {
             let groupBar = document.getElementById('group-bar')

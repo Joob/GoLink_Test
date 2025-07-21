@@ -1,7 +1,7 @@
 <template>
     <div @keydown.esc="closeOverlays" tabindex="-1" class="min-w-[320px]">
         <!--UI components-->
-        <Alert v-if="!isLoading && user" />
+        <Alert />
         <ToasterWrapper />
         <CookieDisclaimer />
         <RemoteUploadProgress />
@@ -51,7 +51,6 @@ export default {
         return {
             isLoaded: false,
 			isSidebarNavigation: undefined,
-            isLoading: true, // Added for controlling popup rendering
         }
     },
     computed: {
@@ -63,29 +62,9 @@ export default {
 			return `${this.$route.fullPath}-${Date.now()}`
 		}
     },
-    async mounted() {
-        // Aguarda a inicialização completa antes de renderizar os popups
-        await this.$nextTick()
-        
-        // Pequeno delay para garantir que tudo está carregado
-        setTimeout(() => {
-            this.isLoading = false
-        }, 100)
-    },
     watch: {
         'config.defaultThemeMode': function () {
             this.handleDarkMode()
-        },
-        // Observa mudanças no user para garantir que os popups sejam renderizados
-        user: {
-            handler(newUser) {
-                if (newUser && this.isLoading) {
-                    this.$nextTick(() => {
-                        this.isLoading = false
-                    })
-                }
-            },
-            immediate: true
         },
 		'$route' (to, from) {
 			let section = this.$router.currentRoute.fullPath.split('/')[1]

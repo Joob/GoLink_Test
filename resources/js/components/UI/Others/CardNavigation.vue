@@ -43,8 +43,9 @@ export default {
         // Handle fixed mobile navigation
         window.addEventListener('scroll', () => {
             let card = document.getElementById('card-navigation')
-
-            this.fixedNav = card.getBoundingClientRect().top < 0
+            if (card) {
+                this.fixedNav = card.getBoundingClientRect().top < 0
+            }
         })
     },
 }

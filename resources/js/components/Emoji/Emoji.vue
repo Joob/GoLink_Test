@@ -30,6 +30,7 @@ export default {
             return twemoji.parse(this.emoji.char, {
                 folder: 'svg',
                 ext: '.svg',
+                base: 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/16.0.1/',
                 attributes: () => ({
                     loading: 'lazy',
                 }),

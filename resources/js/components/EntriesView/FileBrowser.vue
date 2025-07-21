@@ -89,9 +89,12 @@ export default {
         }, 150),
         
         isInfinityLoaderAtBottomPage() {
-            if (!this.$refs.infinityLoader) return false // Added safety check
-            
-            let rect = this.$refs.infinityLoader.getBoundingClientRect()
+            const loader = this.$refs.infinityLoader
+            if (!loader) return false
+
+            // Garantir que $refs.infinityLoader é um elemento do DOM
+            let rect = (loader instanceof Element) ? loader.getBoundingClientRect() : null
+            if (!rect) return false
 
             return (
                 rect.bottom > 0 &&

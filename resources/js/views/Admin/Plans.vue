@@ -175,7 +175,7 @@
             <div class="text-center">
                 <img
                     class="mb-6 inline-block w-28"
-                    src="https://twemoji.maxcdn.com/v/13.1.0/svg/1f9fe.svg"
+                    src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/16.0.1/svg/1f9fe.svg"
                     alt="transaction"
                 />
 

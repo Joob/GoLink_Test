@@ -3,9 +3,9 @@
         <span v-if="limit && membersCount > 3" class="member-count"> +{{ membersCount - 3 }} </span>
         <div class="members">
             <div
-                v-for="member in members"
-                :key="member.data.id"
-                :title="member.data.attributes.email"
+                v-for="(member, index) in members"
+                :key="`${member.type}-${member.id}-${index}`"
+                :title="getMemberEmail(member)"
                 class="member-preview z-10"
             >
                 <MemberAvatar :is-border="true" :size="34" :member="member" />
@@ -25,23 +25,56 @@ export default {
     },
     computed: {
         membersCount() {
-            return (
-                this.folder.data.relationships.members.data.length +
-                this.folder.data.relationships.invitations.data.length
-            )
+            // Remove duplicatas antes de contar
+            const uniqueMembers = this.getUniqueMembers()
+            return uniqueMembers.length
         },
         members() {
-            let allMembers = this.folder.data.relationships.members.data.concat(
-                this.folder.data.relationships.invitations.data
-            )
+            const uniqueMembers = this.getUniqueMembers()
 
             if (this.limit) {
-                return allMembers.slice(0, 3)
+                return uniqueMembers.slice(0, 3)
             }
 
-            return allMembers
+            return uniqueMembers
         },
     },
+    methods: {
+        getUniqueMembers() {
+            // Check if folder and its nested properties exist
+            if (!this.folder || !this.folder.data || !this.folder.data.relationships) {
+                return []
+            }
+
+            const relationships = this.folder.data.relationships
+            const members = (relationships.members && relationships.members.data) || []
+            const invitations = (relationships.invitations && relationships.invitations.data) || []
+            
+            // Combina arrays e remove duplicatas baseando-se no ID
+            const allMembers = [...members, ...invitations]
+            const uniqueMap = new Map()
+            
+            allMembers.forEach(member => {
+                // Usa uma chave única combinando tipo e ID
+                const key = `${member.type}-${member.id}`
+                if (!uniqueMap.has(key)) {
+                    uniqueMap.set(key, member)
+                }
+            })
+            
+            return Array.from(uniqueMap.values())
+        },
+        getMemberEmail(member) {
+            // Handle different possible data structures
+            if (member.attributes && member.attributes.email) {
+                return member.attributes.email
+            }
+            if (member.data && member.data.attributes && member.data.attributes.email) {
+                return member.data.attributes.email
+            }
+            return ''
+        }
+    }
 }
 </script>
 

@@ -259,7 +259,6 @@ export default {
     data() {
         return {
             item: undefined,
-            teamFolder: undefined,
         }
     },
     methods: {

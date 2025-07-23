@@ -77,7 +77,7 @@
                 <!--File Controls-->
                 <div class="ml-5 flex items-center xl:ml-8">
                     <!--Team Heads-->
-                    <PopoverWrapper v-if="$isThisRoute($route, ['TeamFolders', 'SharedWithMe'])">
+                    <PopoverWrapper v-if="shouldShowTeamMembersButton">
                         <TeamMembersButton
                             @click.stop.native="showTeamFolderMenu"
                             size="32"
@@ -264,6 +264,13 @@ export default {
             'clipboard',
             'user',
         ]),
+        shouldShowTeamMembersButton() {
+            // Mostra o botão apenas se:
+            // 1. Estiver nas rotas corretas (TeamFolders ou SharedWithMe)
+            // 2. Houver um item selecionado (clipboard não vazio) OU estiver dentro de uma pasta de equipe
+            return this.$isThisRoute(this.$route, ['TeamFolders', 'SharedWithMe']) && 
+                   (this.clipboard.length > 0 || this.currentTeamFolder || this.$route.params.id)
+        },
         canEdit() {
             if (this.currentTeamFolder && this.user && this.clipboard.length === 1) {
                 let member = this.currentTeamFolder.data.relationships.members.data.find(

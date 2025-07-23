@@ -1,5 +1,5 @@
 <template>
-    <div class="py-3 px-5 text-left">
+    <div class="py-3 px-5 text-left" v-if="teamFolder && teamFolder.data">
         <div class="info">
             <b class="title text-sm">
                 {{ teamFolder.data.attributes.name }}
@@ -9,6 +9,9 @@
             </span>
             <TeamMembersPreview :folder="teamFolder" :avatar-size="32" class="members" />
         </div>
+    </div>
+    <div v-else>
+        <span>No folder selected</span>
     </div>
 </template>
 

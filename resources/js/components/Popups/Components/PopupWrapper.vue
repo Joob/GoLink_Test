@@ -1,13 +1,14 @@
 <template>
-    <transition name="popup">
-        <div
-            v-if="isVisibleWrapper"
-            @click.self="closePopup"
-            class="popup fixed top-0 left-0 right-0 bottom-0 z-50 grid h-full overflow-y-auto p-10 lg:absolute"
-        >
-            <div
-                class="fixed top-0 bottom-0 left-0 right-0 z-10 m-auto w-full bg-white shadow-xl dark:bg-dark-foreground md:relative md:w-[490px] md:rounded-xl"
-            >
+    <transition name="popup" @after-leave="onAfterLeave">
+        <div v-if="isVisible" class="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-10">
+            <!-- Overlay with blur only -->
+            <div 
+                class="absolute inset-0 backdrop-blur-md bg-transparent" 
+                @click="closePopup"
+            ></div>
+            
+            <!-- Popup content -->
+            <div class="relative z-10 w-full max-w-[490px] bg-white shadow-xl dark:bg-dark-foreground md:rounded-xl">
                 <slot />
             </div>
         </div>
@@ -19,48 +20,53 @@ import { events } from '../../../bus'
 
 export default {
     name: 'PopupWrapper',
-    props: ['name'],
+    props: {
+        name: {
+            type: String,
+            default: 'confirm'
+        }
+    },
     data() {
         return {
-            isVisibleWrapper: false,
+            isVisible: false
         }
     },
     methods: {
         closePopup() {
-            events.$emit('popup:close')
+            this.isVisible = false
+            events.$emit('popup:close', this.name)
         },
+        onAfterLeave() {
+            // Ensures any cleanup happens after transition
+            this.$emit('closed')
+        }
     },
-    created() {
-        // Store event listener references for cleanup
-        this.popupOpenHandler = ({ name }) => {
-            if (this.name === name) this.isVisibleWrapper = true
-
-            if (this.name !== name) this.isVisibleWrapper = false
-        };
-
-        this.confirmOpenHandler = ({ name }) => {
-            if (this.name === name) this.isVisibleWrapper = true
-        };
-
-        this.popupCloseHandler = () => (this.isVisibleWrapper = false);
-
-        // Register event listeners
-        events.$on('popup:open', this.popupOpenHandler);
-        events.$on('confirm:open', this.confirmOpenHandler);
-        events.$on('popup:close', this.popupCloseHandler);
+    mounted() {
+        // Open handlers
+        events.$on('confirm:open', () => {
+            if (this.name === 'confirm') {
+                this.isVisible = true
+            }
+        })
+        
+        events.$on('popup:open', (data) => {
+            if (data && data.name === this.name) {
+                this.isVisible = true
+            }
+        })
+        
+        // Close handlers
+        events.$on('popup:close', (closeName) => {
+            if (!closeName || closeName === this.name) {
+                this.isVisible = false
+            }
+        })
     },
     beforeDestroy() {
-        // Clean up event listeners to prevent memory leaks
-        if (this.popupOpenHandler) {
-            events.$off('popup:open', this.popupOpenHandler);
-        }
-        if (this.confirmOpenHandler) {
-            events.$off('confirm:open', this.confirmOpenHandler);
-        }
-        if (this.popupCloseHandler) {
-            events.$off('popup:close', this.popupCloseHandler);
-        }
-    },
+        events.$off('confirm:open')
+        events.$off('popup:open')
+        events.$off('popup:close')
+    }
 }
 </script>
 

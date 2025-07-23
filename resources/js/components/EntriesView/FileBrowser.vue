@@ -21,17 +21,17 @@
             @drop.stop.native.prevent="dragFinish(item, $event)"
             @contextmenu.native.prevent="contextMenu($event, item)"
             :class="draggedItems.includes(item) ? 'opacity-60' : ''"
-            v-for="(item, index) in entries"
-            :key="`item-${item.data.id}-${index}`"
+            v-for="item in entries"
+            :key="item.data.id"
             :item="item"
         />
 
         <!-- Infinite Loader Element -->
         <div
-            v-show="showInfiniteLoadSpinner"
+			v-show="showInfiniteLoadSpinner"
             class="relative h-8 md:mt-0 md:mb-4 my-4 col-span-full scale-50"
-            ref="infinityLoader"
-        >
+			ref="infinityLoader"
+		>
             <Spinner />
         </div>
     </div>
@@ -64,7 +64,7 @@ export default {
             }
         },
         canLoadMoreEntries() {
-            return this.paginate?.currentPage !== this.paginate?.lastPage
+			return this.paginate?.currentPage !== this.paginate?.lastPage
         },
         showInfiniteLoadSpinner() {
             return this.canLoadMoreEntries && this.entries.length !== 0 && this.paginate.perPage <= this.entries.length
@@ -78,50 +78,46 @@ export default {
         }
     },
     methods: {
-        infiniteScroll: debounce(function () {
-            if (this.isInfinityLoaderAtBottomPage() && this.canLoadMoreEntries && !this.isLoadingNewEntries) {
-                this.isLoadingNewEntries = true
+		infiniteScroll: debounce(function () {
+			if (this.isInfinityLoaderAtBottomPage() && this.canLoadMoreEntries && !this.isLoadingNewEntries) {
+				this.isLoadingNewEntries = true
 
-                this.$getDataByLocation(this.paginate.currentPage + 1)
-                    .then(() => this.isLoadingNewEntries = false)
-                    .catch(() => this.isLoadingNewEntries = false) // Added error handling
-            }
-        }, 150),
-        
+				this.$getDataByLocation(this.paginate.currentPage + 1)
+					.then(() => this.isLoadingNewEntries = false)
+			}
+		}, 150),
         isInfinityLoaderAtBottomPage() {
-            const loader = this.$refs.infinityLoader
-            if (!loader) return false
-
-            // Garantir que $refs.infinityLoader é um elemento do DOM
-            let rect = (loader instanceof Element) ? loader.getBoundingClientRect() : null
-            if (!rect) return false
-
+            const rect = this.$refs.infinityLoader?.getBoundingClientRect();
+            
+            if (!rect) {
+                return false;
+            }
+            
+            // Atualiza fixedNav baseado na posição
+            this.fixedNav = rect.top < 0;
+            
+            // Verifica se o elemento está visível no viewport
             return (
                 rect.bottom > 0 &&
                 rect.right > 0 &&
                 rect.left < (window.innerWidth || document.documentElement.clientWidth) &&
                 rect.top < (window.innerHeight || document.documentElement.clientHeight)
-            )
+            );
         },
-        
         deleteItems() {
             if ((this.clipboard.length > 0 && this.$checkPermission('master')) || this.$checkPermission('editor')) {
                 this.$deleteFileOrFolder()
             }
         },
-        
         dragStop() {
             this.isDragging = false
         },
-        
         dragEnter() {
             this.isDragging = true
         },
-        
         dragLeave() {
             this.isDragging = false
         },
-        
         dragStart(data) {
             let img = document.createElement('img')
             img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
@@ -131,58 +127,53 @@ export default {
 
             // Store dragged folder
             this.draggingId = data
+
+            // TODO: found issue on firefox
         },
-        
         async dragFinish(data, event) {
-            try {
-                if (event.dataTransfer.files.length) {
-                    // Check if user dropped folder with files
-                    let files = await getFilesFromDataTransferItems(event.dataTransfer.items)
 
-                    if (files.length !== 0 && event.dataTransfer.items.length === 0) {
-                        const id = data.data.type !== 'folder' ? this.currentFolder?.data.id : data.data.id
+			if (event.dataTransfer.files.length) {
+				// Check if user dropped folder with files
+				let files = await getFilesFromDataTransferItems(event.dataTransfer.items)
 
-                        // Upload folder with files
-                        this.$uploadDraggedFolderOrFile(files, id)
-                    }
-                } else {
-                    // Prevent to drop on file or image
-                    if (data.data.type !== 'folder' || this.draggingId === data) return
+				if (files.length !== 0 && event.dataTransfer.items.length === 0) {
+					const id = data.data.type !== 'folder' ? this.currentFolder?.data.id : data.data.id
 
-                    // Prevent move selected folder to folder if in between selected folders
-                    if (this.clipboard.find((item) => item === data && this.clipboard.length > 1)) return
+					// Upload folder with files
+					this.$uploadDraggedFolderOrFile(files, id)
+				}
+			} else {
+                // Prevent to drop on file or image
+                if (data.data.type !== 'folder' || this.draggingId === data) return
 
-                    // Move item if is not included in selected items
-                    if (!this.clipboard.includes(this.draggingId)) {
-                        this.$store.dispatch('moveItem', {
-                            to_item: data,
-                            item: this.draggingId,
-                        })
-                    }
+                // Prevent move selected folder to folder if in between selected folders
+                if (this.clipboard.find((item) => item === data && this.clipboard.length > 1)) return
 
-                    // Move selected items to folder
-                    if (this.clipboard.length > 0 && this.clipboard.includes(this.draggingId)) {
-                        this.$store.dispatch('moveItem', {
-                            to_item: data,
-                            item: null,
-                        })
-                    }
+                // Move item if is not included in selected items
+                if (!this.clipboard.includes(this.draggingId)) {
+                    this.$store.dispatch('moveItem', {
+                        to_item: data,
+                        item: this.draggingId,
+                    })
                 }
-            } catch (error) {
-                console.error('Error during drag finish:', error)
-            } finally {
-                this.isDragging = false
-            }
+
+                // Move selected items to folder
+                if (this.clipboard.length > 0 && this.clipboard.includes(this.draggingId)) {
+                    this.$store.dispatch('moveItem', {
+                        to_item: data,
+                        item: null,
+                    })
+                }
+			}
+
+            this.isDragging = false
         },
-        
         contextMenu(event, item) {
             events.$emit('context-menu:show', event, item)
         },
-        
         hideContextMenu() {
             events.$emit('context-menu:hide')
         },
-        
         deselect() {
             // Hide context menu
             events.$emit('context-menu:hide')
@@ -191,12 +182,11 @@ export default {
             this.$store.commit('CLIPBOARD_CLEAR')
         },
     },
-    
     created() {
-        // Track document scrolling to load new entries if needed
-        if (window.innerWidth <= 1024) {
-            document.addEventListener('scroll', this.infiniteScroll)
-        }
+		// Track document scrolling to load new entries if needed
+		if (window.innerWidth <= 1024) {
+			document.addEventListener('scroll', this.infiniteScroll)
+		}
 
         events.$on('drop', () => {
             this.isDragging = false
@@ -206,13 +196,5 @@ export default {
             }, 10)
         })
     },
-    
-    beforeDestroy() {
-        // Clean up event listeners
-        if (window.innerWidth <= 1024) {
-            document.removeEventListener('scroll', this.infiniteScroll)
-        }
-        events.$off('drop')
-    }
 }
 </script>

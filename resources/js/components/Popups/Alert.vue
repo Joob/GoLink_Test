@@ -3,24 +3,24 @@
 		<div
 			v-if="isVisibleWrapper"
 			@click.self="closePopup"
-			class="fixed top-0 left-0 right-0 bottom-0 z-50 grid h-full overflow-y-auto p-10"
+			class="fixed top-0 left-0 right-0 bottom-0 z-50 grid h-full overflow-y-auto p-10 bg-black/50 dark:bg-black/70"
 		>
-            <div class="fixed top-0 bottom-0 left-0 right-0 z-10 m-auto w-full bg-white shadow-xl dark:bg-dark-foreground md:relative md:w-[490px] md:rounded-xl">
+            <div class="fixed top-0 bottom-0 left-0 right-0 z-10 m-auto w-full bg-white shadow-xl dark:bg-gray-800 md:relative md:w-[490px] md:rounded-xl">
 				<div class="flex h-full -translate-y-7 transform items-center justify-center px-8 text-center md:translate-y-0">
 					<div>
 						<img v-if="isSuccess" src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/16.0.1/svg/1f609.svg" alt="" class="mx-auto mb-4 w-20 md:mt-6 min-h-[80px]" />
 						<img v-if="isAlert" src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/16.0.1/svg/1f627.svg" alt="" class="mx-auto mb-4 w-20 md:mt-6 min-h-[80px]" />
 
-						<h1 v-if="title" class="mb-2 text-2xl font-bold">
+						<h1 v-if="title" class="mb-2 text-2xl font-bold text-gray-900 dark:text-white">
 							{{ title }}
 						</h1>
-						<p v-if="message" class="mb-4 text-sm overflow-anywhere">
+						<p v-if="message" class="mb-4 text-sm overflow-anywhere text-gray-700 dark:text-gray-300">
 							{{ message }}
 						</p>
 					</div>
 				</div>
 				<PopupActions>
-					<ButtonBase @click.native="closePopup" :button-style="buttonStyle" class="w-full" :disabled="isProcessing">
+					<ButtonBase @click.native="closePopup" :button-style="buttonStyle" class="w-full">
 						{{ button }}
                     </ButtonBase>
 				</PopupActions>
@@ -49,26 +49,16 @@ export default {
             button: undefined,
 			isSuccess: undefined,
 			isAlert: undefined,
-            isProcessing: false,
         }
     },
     methods: {
         closePopup() {
-            // Prevent rapid multiple clicks
-            if (this.isProcessing) return;
-            this.isProcessing = true;
-            
-            events.$emit('popup:close');
-            
-            // Reset processing state after a short delay
-            setTimeout(() => {
-                this.isProcessing = false;
-            }, 300);
+            events.$emit('popup:close')
         },
     },
     mounted() {
-        // Store event listener references for cleanup
-        this.alertOpenHandler = (args) => {
+        // Show alert
+        events.$on('alert:open', (args) => {
             this.isVisibleWrapper = true
             this.isAlert = true
 
@@ -85,9 +75,10 @@ export default {
             if (args.button) {
                 this.button = args.button
             }
-        };
+        })
 
-        this.successOpenHandler = (args) => {
+        // Show alert
+        events.$on('success:open', (args) => {
             this.isVisibleWrapper = true
 			this.isSuccess = true
 
@@ -96,31 +87,14 @@ export default {
 
             this.button = this.$t('alerts.success_confirm')
             this.buttonStyle = 'theme'
-        };
+        })
 
-        this.popupCloseHandler = () => {
+        // Close popup
+        events.$on('popup:close', () => {
             this.isVisibleWrapper = false
             this.isSuccess = undefined
             this.isAlert = undefined
-            this.isProcessing = false
-        };
-
-        // Register event listeners
-        events.$on('alert:open', this.alertOpenHandler);
-        events.$on('success:open', this.successOpenHandler);
-        events.$on('popup:close', this.popupCloseHandler);
-    },
-    beforeDestroy() {
-        // Clean up event listeners to prevent memory leaks
-        if (this.alertOpenHandler) {
-            events.$off('alert:open', this.alertOpenHandler);
-        }
-        if (this.successOpenHandler) {
-            events.$off('success:open', this.successOpenHandler);
-        }
-        if (this.popupCloseHandler) {
-            events.$off('popup:close', this.popupCloseHandler);
-        }
+        })
     },
 }
 </script>

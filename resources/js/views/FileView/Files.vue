@@ -131,12 +131,12 @@
                         icon='rename'
                     />
                     <Option @click.native='$moveFileOrFolder(item)' :title="$t('move')" icon='move-item' />
-                    <Option 
+                    <!--<Option 
                         @click.native='$deleteFileOrFolder(item, clipboard[0])' 
                         :class="{ 'is-inactive': clipboard.length > 0 }" 
                         :title="$t('delete')" 
                         icon='trash' 
-                    />
+                    />-->
                 </OptionGroup>
                 <OptionGroup>
                     <Option

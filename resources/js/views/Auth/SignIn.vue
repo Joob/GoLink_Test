@@ -756,7 +756,7 @@
                         
                         this.token = response.data.token
 
-                        // If 2FA is enabled and not already validated
+                        // Se 2FA está ativo e não validou ainda, vai para 2FA e NÃO envia OTP
                         if (response.data.two_factor && !this.validSignIn) {
                             this.validSignIn = true
                             this.goToAuthPage('two-factor-authentication')
@@ -764,8 +764,10 @@
                             return;
                         }
 
-                        // Handle OTP sending with smart logic
-                        this.sendOtpCode();
+                        // Se NÃO tem 2FA, segue fluxo normal (OTP)
+                        if (!response.data.two_factor) {
+                            this.sendOtpCode();
+                        }
                     })
                     .catch((error) => {
                         if (error.response.status == 422) {
@@ -793,8 +795,9 @@
                         .post('/two-factor-challenge', payload)
                         .then(() => {
                             this.isLoading = false
-                            // After 2FA success, send OTP
-                            this.sendOtpCode();
+                            // Após 2FA com sucesso, vai direto para Files SEM enviar OTP
+                            this.$store.commit('SET_AUTHORIZED', true)
+                            this.$router.push({ name: 'Files' })
                         })
                         .catch((error) => {
                             if (error.response.status == 422) {

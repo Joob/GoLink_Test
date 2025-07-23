@@ -5,21 +5,21 @@
         <Spotlight />
 
         <!--Popups-->
-        <ProcessingPopup />
-        <ConfirmPopup />
+        <ProcessingPopup v-if="!isLoading && user" />
+        <ConfirmPopup v-if="!isLoading && user" />
 
-        <CreateTeamFolderPopup />
-        <EditTeamFolderPopup />
+        <CreateTeamFolderPopup v-if="!isLoading && user" />
+        <EditTeamFolderPopup v-if="!isLoading && user" />
 
-        <ShareCreatePopup />
-        <ShareEditPopup />
+        <ShareCreatePopup v-if="!isLoading && user" />
+        <ShareEditPopup v-if="!isLoading && user" />
 
-        <CreateUploadRequestPopup />
-		<NotificationsPopup />
-		<RemoteUploadPopup />
-        <CreateFolderPopup />
-        <RenameItemPopup />
-        <MoveItemPopup />
+        <CreateUploadRequestPopup v-if="!isLoading && user" />
+        <NotificationsPopup v-if="!isLoading && user" />
+        <RemoteUploadPopup v-if="!isLoading && user" />
+        <CreateFolderPopup v-if="!isLoading && user" />
+        <RenameItemPopup v-if="!isLoading && user" />
+        <MoveItemPopup v-if="!isLoading && user" />
 
         <!--Mobile components-->
         <FileSortingMobile />
@@ -87,9 +87,9 @@ import RemoteUploadPopup from "../components/RemoteUpload/RemoteUploadPopup";
 export default {
     name: 'Platform',
     components: {
-		RemoteUploadPopup,
-		NotificationsPopup,
-		CreateUploadRequestPopup,
+        RemoteUploadPopup,
+        NotificationsPopup,
+        CreateUploadRequestPopup,
         CreateTeamFolderPopup,
         PanelNavigationFiles,
         EditTeamFolderPopup,
@@ -112,23 +112,24 @@ export default {
         DragUI,
     },
     computed: {
-        ...mapGetters(['isVisibleSidebar', 'config', 'currentFolder']),
+        ...mapGetters(['isVisibleSidebar', 'config', 'currentFolder', 'user']),
     },
     data() {
         return {
             isScaledDown: false,
+            isLoading: true,
         }
     },
     methods: {
-		async uploadDroppedItems(event) {
-			// Check if user dropped folder with files
-			let files = await getFilesFromDataTransferItems(event.dataTransfer.items)
+        async uploadDroppedItems(event) {
+            // Check if user dropped folder with files
+            let files = await getFilesFromDataTransferItems(event.dataTransfer.items)
 
-			if (files.length !== 0) {
-				// Upload folder with files
-				this.$uploadDraggedFolderOrFile(files, this.currentFolder?.data.id)
-			}
-		},
+            if (files.length !== 0) {
+                // Upload folder with files
+                this.$uploadDraggedFolderOrFile(files, this.currentFolder?.data.id)
+            }
+        },
         contextMenu(event, item) {
             events.$emit('context-menu:show', event, item)
         },
@@ -141,15 +142,30 @@ export default {
         },
     },
     async mounted() {
-        // Verificar se o usuário está autenticado
-        if (!this.$store.getters.isAuthenticated) {
-            this.$router.push('/login')
-            return
-        }
-        
-        // Seu código existente
+        // TODO: new scaledown effect
         events.$on('mobile-menu:show', () => (this.isScaledDown = true))
         events.$on('mobile-menu:hide', () => (this.isScaledDown = false))
+
+        // Aguarda a inicialização completa antes de renderizar os popups
+        await this.$nextTick()
+        
+        // Pequeno delay para garantir que tudo está carregado
+        setTimeout(() => {
+            this.isLoading = false
+        }, 100)
+    },
+    watch: {
+        // Observa mudanças no user para garantir que os popups sejam renderizados
+        user: {
+            handler(newUser) {
+                if (newUser && this.isLoading) {
+                    this.$nextTick(() => {
+                        this.isLoading = false
+                    })
+                }
+            },
+            immediate: true
+        }
     }
 }
 </script>

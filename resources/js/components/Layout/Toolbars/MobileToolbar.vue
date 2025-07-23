@@ -6,7 +6,7 @@
 
         <div class="relative flex items-center">
             <TeamMembersButton
-                v-if="$isThisRoute($route, ['TeamFolders', 'SharedWithMe'])"
+                v-if="shouldShowTeamMembersButton"
                 size="28"
                 @click.stop.native="$showMobileMenu('team-menu')"
                 class="absolute right-10"
@@ -58,7 +58,14 @@ export default {
         SunIcon,
     },
     computed: {
-        ...mapGetters(['isDarkMode'])
+        ...mapGetters(['isDarkMode', 'currentTeamFolder', 'clipboard']),
+        shouldShowTeamMembersButton() {
+            // Mostra o botão apenas se:
+            // 1. Estiver nas rotas corretas (TeamFolders ou SharedWithMe)
+            // 2. Houver um item selecionado (clipboard não vazio) OU estiver dentro de uma pasta de equipe
+            return this.$isThisRoute(this.$route, ['TeamFolders', 'SharedWithMe']) && 
+                   (this.clipboard.length > 0 || this.currentTeamFolder || this.$route.params.id)
+        },
     },
     methods: {
         showMobileNavigation() {

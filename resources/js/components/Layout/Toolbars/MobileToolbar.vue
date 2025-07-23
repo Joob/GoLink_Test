@@ -4,35 +4,42 @@
     >
         <NavigationBar />
 
-        <div class="relative flex items-center">
-            <TeamMembersButton
-                v-if="shouldShowTeamMembersButton"
-                size="28"
-                @click.stop.native="$showMobileMenu('team-menu')"
-                class="absolute right-10"
-            />
-
-<!-- GoLink CHANGE HERE -->
-            <div class="flex items-center mr-[4px]">
-                <div class="mr-4 button-icon inline-block cursor-pointer rounded-xl p-3">
-                    <language-switcher />
-                </div>
-
-                <!--Toggle Dark/Light mode-->
-                <div @click="$store.dispatch('toggleThemeMode')" :title="$t('dark_mode_toggle')">
-                    <div style="margin-top: 10px" class="mr-4 button-icon inline-block cursor-pointer rounded-xl p-3">
-                        <sun-icon v-if="isDarkMode" size="20" />
-                        <moon-icon v-if="!isDarkMode" size="20" />
-                    </div>
-                </div>
+        <div class="flex items-center gap-1">
+            <!-- Language Switcher -->
+            <div class="button-icon cursor-pointer rounded-xl p-2">
+                <language-switcher />
             </div>
-<!-- GoLink CHANGE HERE -->
 
-            <!--More Actions-->
-            <div class="flex items-center relative mr-[4px]">               
-				<div v-if="! $isThisRoute($route, ['Public'])" @click="showMobileNavigation" class="cursor-pointer p-1.5 -m-1.5">
-					<menu-icon size="20" class="vue-feather dark:text-gray-100" />
-				</div>
+            <!-- Toggle Dark/Light mode -->
+            <div 
+                @click="$store.dispatch('toggleThemeMode')" 
+                :title="$t('dark_mode_toggle')"
+                class="button-icon cursor-pointer rounded-xl p-2"
+            >
+                <sun-icon v-if="isDarkMode" size="20" />
+                <moon-icon v-if="!isDarkMode" size="20" />
+            </div>
+
+            <!-- Team Members Button -->
+            <transition name="fade-scale">
+                <TeamMembersButton
+                    v-if="shouldShowTeamMembersButton"
+                    size="5"
+                    @click.stop.native="$showMobileMenu('team-menu')"
+                    class="button-icon cursor-pointer rounded-xl p-2"
+                />
+            </transition>
+
+            <!-- Divider -->
+            <div v-if="!$isThisRoute($route, ['Public'])" class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+
+            <!-- Menu Actions -->
+            <div 
+                v-if="!$isThisRoute($route, ['Public'])" 
+                @click="showMobileNavigation" 
+                class="button-icon cursor-pointer rounded-xl p-2"
+            >
+                <menu-icon size="20" class="vue-feather dark:text-gray-100" />
             </div>
         </div>
     </div>
@@ -75,3 +82,16 @@ export default {
     },
 }
 </script>
+
+<style scoped>
+.fade-scale-enter-active,
+.fade-scale-leave-active {
+    transition: all 0.2s ease;
+}
+
+.fade-scale-enter,
+.fade-scale-leave-to {
+    opacity: 0;
+    transform: scale(0.8);
+}
+</style>

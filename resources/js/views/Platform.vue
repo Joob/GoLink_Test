@@ -32,7 +32,7 @@
         <DragUI />
 
         <!--2 col Sidebars-->
-        <PanelNavigationFiles />
+        <PanelNavigationFiles @click="deselect" />
 
         <div
             @contextmenu.prevent.capture="contextMenu($event, undefined)"

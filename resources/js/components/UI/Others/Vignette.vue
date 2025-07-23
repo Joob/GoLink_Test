@@ -2,7 +2,7 @@
     <transition name="vignette">
         <div
             v-if="isVisible"
-            class="vignette dark:bg-2x-dark-background bg-dark-background bg-opacity-[0.35] dark:bg-opacity-[0.70]"
+            class="vignette bg-opacity-[0.35] dark:bg-opacity-[0.70]"
             @click="closePopup"
         ></div>
     </transition>
@@ -27,20 +27,41 @@ export default {
     },
     methods: {
         closePopup() {
+            // Fecha primeiro o vignette
+            this.isVisibleVignette = false
+            
+            // Depois emite os eventos
             events.$emit('popup:close')
             events.$emit('spotlight:hide')
             events.$emit('mobile-menu:hide')
         },
     },
     created() {
+        // Store event listener references for cleanup
+        this.showVignetteHandler = () => {
+            this.isVisibleVignette = true
+        };
+        
+        this.hideVignetteHandler = () => {
+            this.isVisibleVignette = false
+        };
+
         // Show vignette
-        events.$on('popup:open', () => (this.isVisibleVignette = true))
-        events.$on('alert:open', () => (this.isVisibleVignette = true))
-        events.$on('success:open', () => (this.isVisibleVignette = true))
-        events.$on('confirm:open', () => (this.isVisibleVignette = true))
+        events.$on('popup:open', this.showVignetteHandler)
+        events.$on('alert:open', this.showVignetteHandler)
+        events.$on('success:open', this.showVignetteHandler)
+        events.$on('confirm:open', this.showVignetteHandler)
 
         // Hide vignette
-        events.$on('popup:close', () => (this.isVisibleVignette = false))
+        events.$on('popup:close', this.hideVignetteHandler)
+    },
+    beforeDestroy() {
+        // Clean up all event listeners to prevent memory leaks
+        events.$off('popup:open', this.showVignetteHandler)
+        events.$off('alert:open', this.showVignetteHandler)
+        events.$off('success:open', this.showVignetteHandler)
+        events.$off('confirm:open', this.showVignetteHandler)
+        events.$off('popup:close', this.hideVignetteHandler)
     },
 }
 </script>

@@ -250,12 +250,25 @@ const FunctionHelpers = {
             }
         }
 
-        Vue.prototype.$getOptimalChunkSize = function (fileSize) {
+        Vue.prototype.$getOptimalChunkSize = function (fileSize, customChunkSize = null) {
+            // Allow manual override of chunk size via config or parameter
+            if (customChunkSize && customChunkSize > 0) {
+                return customChunkSize;
+            }
+
+            // Check if there's a global chunk size override in config
+            const configChunkSize = store.getters.config?.chunkSize;
+            const useDefaultChunkingStrategy = store.getters.config?.useOptimalChunking !== false;
+
+            // If optimal chunking is disabled, use the config chunk size
+            if (!useDefaultChunkingStrategy && configChunkSize) {
+                return configChunkSize;
+            }
+
             // Define size thresholds in bytes
             const KB = 1024;
             const MB = KB * 1024;
             const GB = MB * 1024;
-            const TB = GB * 1024;
 
             // Dynamic chunk sizing based on file size for optimal performance
             if (fileSize < 10 * MB) {
@@ -270,18 +283,35 @@ const FunctionHelpers = {
             } else if (fileSize < 10 * GB) {
                 // Very large files: 32MB chunks
                 return 32 * MB;
-            } else {
-                // Extremely large files (TB range): 64MB chunks
+            } else if (fileSize < 100 * GB) {
+                // Extremely large files: 64MB chunks
                 return 64 * MB;
+            } else {
+                // TB range files: 256MB chunks for maximum efficiency
+                return 256 * MB;
             }
         }
 
         Vue.prototype.$handleUploading = async function (item) {
+            // Check if upload should be paused or cancelled
+            const uploadingFile = store.getters.uploadingFiles[item.id];
+            if (uploadingFile && uploadingFile.status === 'paused') {
+                console.log('Upload paused for file:', item.file.name);
+                return;
+            }
+
             // Get optimal chunk size based on file size
             let size = this.$getOptimalChunkSize(item.file.size),
                 chunksCeil = Math.ceil(item.file.size / size),
                 chunks = [],
                 chunkMetadata = []
+
+            // Safety check for very large number of chunks
+            if (chunksCeil > 50000) {
+                console.warn('File has too many chunks, increasing chunk size for safety');
+                size = Math.ceil(item.file.size / 50000); // Limit to maximum 50k chunks
+                chunksCeil = Math.ceil(item.file.size / size);
+            }
 
             // Create chunks with metadata for better tracking
             for (let i = 0; i < chunksCeil; i++) {
@@ -327,6 +357,13 @@ const FunctionHelpers = {
 
             let chunkIndex = 0;
             do {
+                // Check again if upload should be paused
+                const currentUploadingFile = store.getters.uploadingFiles[item.id];
+                if (currentUploadingFile && currentUploadingFile.status === 'paused') {
+                    console.log('Upload paused during chunk upload for file:', item.file.name);
+                    return;
+                }
+
                 let isLastChunk = chunks.length === 1 ? 1 : 0,
                     chunk = chunks.shift(),
                     currentChunkMeta = chunkMetadata[chunkIndex],
@@ -386,6 +423,7 @@ const FunctionHelpers = {
                             
                             // Permanent errors - don't retry
                             if ([422, 413, 415, 423].includes(statusCode)) {
+                                console.error(`Permanent error ${statusCode} for chunk ${chunkIndex}`);
                                 isNotGeneralError = false;
                                 break;
                             }

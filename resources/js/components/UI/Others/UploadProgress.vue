@@ -1,33 +1,34 @@
 <template>
-    <transition name="info-panel">
-        <div v-if="fileQueue.length > 0" class="upload-progress">
-            <div class="progress-title">
-                <!--Is processing-->
-                <span v-if="isProcessingFile" class="flex items-center justify-center">
-                    <refresh-cw-icon size="12" class="sync-alt text-theme" />
-                    {{ $t('uploading.processing_file') }}
-                </span>
+    <transition name="upload-panel">
+        <div v-if="fileQueue.length > 0" class="upload-progress-container">
+            <div class="upload-progress-header">
+                <div class="upload-status-icon">
+                    <refresh-cw-icon v-if="isProcessingFile" size="16" class="sync-alt text-theme" />
+                    <div v-else class="upload-icon">📁</div>
+                </div>
+                <div class="upload-title">
+                    <span v-if="isProcessingFile">{{ $t('uploading.processing_file') }}</span>
+                    <span v-else>Upload em progresso</span>
+                </div>
+                <button @click="cancelUpload" class="cancel-button" :title="$t('uploading.cancel')">
+                    <x-icon size="16" />
+                </button>
+            </div>
 
-                <!--File upload progress with current file name and remaining count-->
-                <div v-if="!isProcessingFile && fileQueue.length > 0" class="upload-info">
-                    <div class="file-list-info">
-                        <div class="current-file">
-                            <strong>{{ currentFileName }}</strong>
-                        </div>
-                        <div class="remaining-files">
-                            {{ remainingFilesText }}
-                        </div>
+            <div class="upload-progress-body">
+                <div class="file-info">
+                    <div class="file-name" :title="currentFileName">
+                        {{ currentFileName }}
                     </div>
-                    <div class="progress-info">
-                        {{ uploadingProgress }}%
+                    <div class="file-stats">
+                        <span class="progress-percentage">{{ uploadingProgress }}%</span>
+                        <span class="remaining-files">{{ remainingFilesText }}</span>
                     </div>
                 </div>
-            </div>
-            <div class="progress-wrapper">
-                <ProgressBar :progress="uploadingProgress" />
-                <span @click="cancelUpload" :title="$t('uploading.cancel')" class="cancel-icon">
-                    <x-icon size="16" @click="cancelUpload" class="hover-text-theme"></x-icon>
-                </span>
+
+                <div class="progress-bar-container">
+                    <SimpleProgressBar :progress="uploadingProgress" />
+                </div>
             </div>
         </div>
     </transition>
@@ -43,7 +44,7 @@ export default {
     name: 'UploadProgress',
     components: {
         RefreshCwIcon,
-        ProgressBar: SimpleProgressBar,
+        SimpleProgressBar,
         XIcon,
     },
     computed: {
@@ -108,9 +109,9 @@ export default {
 @import '../../../../sass/vuefilemanager/variables';
 @import '../../../../sass/vuefilemanager/mixins';
 
+// Animation for spinning icon
 .sync-alt {
     animation: spin 1s linear infinite;
-    margin-right: 5px;
 
     polyline,
     path {
@@ -127,91 +128,168 @@ export default {
     }
 }
 
-.info-panel-enter-active,
-.info-panel-leave-active {
+// Upload panel animations
+.upload-panel-enter-active,
+.upload-panel-leave-active {
     transition: all 0.3s ease;
 }
 
-.info-panel-enter,
-.info-panel-leave-to {
+.upload-panel-enter,
+.upload-panel-leave-to {
     opacity: 0;
-    transform: translateY(-100%);
+    transform: translateX(100%);
 }
 
-.upload-progress {
-    width: 100%;
-    position: relative;
-    z-index: 1;
+// Main container - positioned in bottom right corner
+.upload-progress-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 320px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: $light_mode_popup_shadow;
+    border: 1px solid $light_mode_border;
+    z-index: 9999;
+    overflow: hidden;
+    font-family: inherit;
 
-    .progress-wrapper {
+    // Dark mode support
+    .dark & {
+        background: $dark_mode_foreground;
+        border-color: $dark_mode_border_color;
+        box-shadow: $dark_mode_popup_shadow;
+    }
+}
+
+// Header section
+.upload-progress-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: $theme_light;
+    border-bottom: 1px solid $light_mode_border_darken;
+
+    .dark & {
+        background: rgba($theme, 0.1);
+        border-bottom-color: $dark_mode_border_color;
+    }
+
+    .upload-status-icon {
         display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
 
-        .cancel-icon {
-            cursor: pointer;
-            padding: 0 7px 0 13px;
+        .upload-icon {
+            font-size: 16px;
+        }
+    }
+
+    .upload-title {
+        flex: 1;
+        margin-left: 12px;
+        font-weight: 600;
+        @include font-size(14);
+        color: $text;
+
+        .dark & {
+            color: $dark_mode_text_primary;
+        }
+    }
+
+    .cancel-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        color: $text-muted;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+            background: rgba($red, 0.1);
+            color: $red;
+        }
+
+        .dark & {
+            color: $dark_mode_text_secondary;
 
             &:hover {
-                line {
-                    color: inherit;
-                }
-            }
-        }
-    }
-
-    .progress-title {
-        font-weight: 700;
-        text-align: center;
-
-        span {
-            @include font-size(14);
-        }
-        
-        .upload-info {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            text-align: left;
-            padding: 0 15px;
-            
-            .file-list-info {
-                flex: 1;
-                min-width: 0; /* Allow text to truncate properly */
-                
-                .current-file {
-                    @include font-size(14);
-                    font-weight: 600;
-                    color: $text;
-                    text-overflow: ellipsis;
-                    overflow: hidden;
-                    white-space: nowrap;
-                    max-width: 100%;
-                }
-                
-                .remaining-files {
-                    @include font-size(12);
-                    font-weight: 400;
-                    color: $text-muted;
-                    margin-top: 2px;
-                    text-overflow: ellipsis;
-                    overflow: hidden;
-                    white-space: nowrap;
-                }
-            }
-            
-            .progress-info {
-                @include font-size(14);
-                font-weight: 600;
-                color: $theme;
-                min-width: 50px;
-                text-align: right;
+                background: rgba($red, 0.2);
+                color: $red;
             }
         }
     }
 }
 
-.dark {
-    .progress-bar {
-        background: $dark_mode_foreground;
+// Body section
+.upload-progress-body {
+    padding: 16px;
+}
+
+.file-info {
+    margin-bottom: 12px;
+
+    .file-name {
+        font-weight: 600;
+        @include font-size(14);
+        color: $text;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+        margin-bottom: 8px;
+
+        .dark & {
+            color: $dark_mode_text_primary;
+        }
+    }
+
+    .file-stats {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        .progress-percentage {
+            font-weight: 700;
+            @include font-size(16);
+            color: $theme;
+        }
+
+        .remaining-files {
+            @include font-size(12);
+            color: $text-muted;
+            font-weight: 500;
+
+            .dark & {
+                color: $dark_mode_text_secondary;
+            }
+        }
+    }
+}
+
+.progress-bar-container {
+    margin-top: 8px;
+}
+
+// Responsive adjustments
+@media (max-width: 480px) {
+    .upload-progress-container {
+        width: 280px;
+        right: 10px;
+        bottom: 10px;
+    }
+}
+
+@media (max-width: 320px) {
+    .upload-progress-container {
+        width: 250px;
     }
 }
 </style>

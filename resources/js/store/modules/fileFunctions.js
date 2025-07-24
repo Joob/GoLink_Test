@@ -12,6 +12,7 @@ const defaultState = {
     filesInQueueTotal: 0,
     uploadingProgress: 0,
     fileQueue: [],
+    uploadingFiles: {}, // Track individual file upload progress
 }
 
 const actions = {
@@ -214,7 +215,7 @@ const actions = {
             .catch(() => Vue.prototype.$isSomethingWrong())
 
     },
-    uploadFiles: ({ commit, getters, dispatch}, { form, fileSize, totalUploadedSize }) => {
+    uploadFiles: ({ commit, getters, dispatch}, { form, fileSize, totalUploadedSize, chunkIndex, totalChunks, chunkSize }) => {
         return new Promise((resolve, reject) => {
             // Get route
             let route = {
@@ -235,20 +236,36 @@ const actions = {
                         'Content-Type': 'application/octet-stream',
                     },
                     onUploadProgress: (event) => {
+                        // Calculate more accurate progress including chunk-level progress
+                        const chunkProgress = (event.loaded / event.total) * 100;
+                        const completedChunkBytes = (chunkIndex || 0) * (chunkSize || 0);
+                        const currentChunkBytes = (event.loaded || 0);
+                        const totalCompletedBytes = completedChunkBytes + currentChunkBytes;
+                        
+                        // Overall file progress
+                        const overallProgress = Math.min(Math.floor((totalCompletedBytes / fileSize) * 100), 100);
+                        
+                        // Progress display formatting
+                        const completedSizeMB = (totalCompletedBytes / (1024 * 1024)).toFixed(2);
+                        const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(2);
+                        const progressText = `${completedSizeMB}MB / ${fileSizeMB}MB`;
 
-                        const completedSize = totalUploadedSize + event.loaded;
-                        const fileSizeMB = fileSize / (1024 * 1024); // Convert fileSize to megabytes
-                        const completedSizeMB = completedSize / (1024 * 1024); // Convert completedSize to megabytes
-                        const progress = Math.floor((completedSize / fileSize) * 100);
-                        const progressText = `${completedSizeMB.toFixed(2)}mb / ${fileSizeMB.toFixed(2)}mb`;
-                        //let percentCompleted = Math.floor(((totalUploadedSize + event.loaded) / fileSize) * 100)
+                        // Update progress in store
+                        commit('UPLOADING_FILE_PROGRESS', overallProgress);
 
-                        //commit('UPLOADING_FILE_PROGRESS', percentCompleted >= 100 ? 100 : percentCompleted)
+                        // Emit detailed progress for UI components
+                        events.$emit('upload-progress-detailed', {
+                            fileSize: fileSize,
+                            totalUploadedSize: totalCompletedBytes,
+                            progress: overallProgress,
+                            progressText: progressText,
+                            chunkIndex: chunkIndex,
+                            totalChunks: totalChunks,
+                            chunkProgress: chunkProgress
+                        });
 
-                        commit('UPLOADING_FILE_PROGRESS', progress >= 100 ? 100 : progress);
-
-                        // Set processing file
-                        if (progress >= 100) {
+                        // Set processing file when approaching completion
+                        if (overallProgress >= 99) {
                             commit('PROCESSING_FILE', true);
                         }
                     },
@@ -257,8 +274,6 @@ const actions = {
                     resolve(response)
 
                     completedUploads++;
-
-                    //const message = "All Files Uploaded Successfully";
 
                     // Check if all files are uploaded
                     if (completedUploads === getters.fileQueue.length) {            
@@ -348,15 +363,25 @@ const actions = {
                                 message = i18n.t('popup_payload_error.message');
                                 break;
                             case 401:
-                                //title = i18n.t('popup_unauthorized.title');
                                 title = i18n.t('popup_exceed_limit.title');
                                 message = i18n.t('popup_exceed_limit.message');
                                 break;
+                            case 500:
+                            case 502:
+                            case 503:
+                            case 504:
+                                // Server errors - let the retry logic in handleUploading handle this
+                                reject(error);
+                                return;
                             default:
                                 title = i18n.t('popup_default_error.title');
                                 message = i18n.t('popup_default_error.message');
                                 break;
                             }
+                        } else {
+                            // Network errors - let the retry logic handle this
+                            reject(error);
+                            return;
                         }
                 
                         // Display the error pop-up if there is a title
@@ -369,16 +394,12 @@ const actions = {
                             });
                         }
 
-                        // Skip processing the current file with an error and move to the next file
-                        commit('SHIFT_FROM_FILE_QUEUE');
-
-                        // Start uploading the next file if the file queue is not empty
-                        if (getters.fileQueue.length) {
-                            Vue.prototype.$handleUploading(getters.fileQueue[0]);
-                        }
+                        // Reject for permanent errors to stop upload
+                        reject(error);
             
                     } catch (error) {
                       console.error(error);
+                      reject(error);
                     }
                 })
         })
@@ -580,6 +601,45 @@ const mutations = {
         state.filesInQueueUploaded = 0
         state.filesInQueueTotal = 0
         state.fileQueue = []
+        state.uploadingFiles = {}
+    },
+    SET_UPLOAD_FILE_METADATA(state, { fileId, fileName, fileSize, totalChunks, uploadedChunks, chunkMetadata }) {
+        Vue.set(state.uploadingFiles, fileId, {
+            fileName,
+            fileSize,
+            totalChunks,
+            uploadedChunks,
+            chunkMetadata,
+            startTime: Date.now(),
+            lastUpdate: Date.now(),
+            status: 'uploading'
+        });
+    },
+    UPDATE_CHUNK_PROGRESS(state, { fileId, chunkIndex, uploaded }) {
+        if (state.uploadingFiles[fileId]) {
+            const fileData = state.uploadingFiles[fileId];
+            if (fileData.chunkMetadata[chunkIndex]) {
+                fileData.chunkMetadata[chunkIndex].uploaded = uploaded;
+                if (uploaded) {
+                    fileData.uploadedChunks++;
+                }
+                fileData.lastUpdate = Date.now();
+            }
+        }
+    },
+    CLEAR_UPLOAD_FILE_METADATA(state, fileId) {
+        Vue.delete(state.uploadingFiles, fileId);
+    },
+    SET_UPLOAD_FILE_STATUS(state, { fileId, status }) {
+        if (state.uploadingFiles[fileId]) {
+            state.uploadingFiles[fileId].status = status;
+        }
+    },
+    REMOVE_FILE_FROM_QUEUE(state, fileId) {
+        const index = state.fileQueue.findIndex(file => file.id === fileId);
+        if (index !== -1) {
+            state.fileQueue.splice(index, 1);
+        }
     },
 }
 
@@ -591,6 +651,7 @@ const getters = {
     isProcessingFile: (state) => state.isProcessingFile,
     processingPopup: (state) => state.processingPopup,
     fileQueue: (state) => state.fileQueue,
+    uploadingFiles: (state) => state.uploadingFiles,
 }
 
 export default {

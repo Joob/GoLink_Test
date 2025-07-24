@@ -18,6 +18,14 @@
                         })
                     }}
                 </span>
+                
+                <!--Current file info for large files with chunks-->
+                <div v-if="currentUploadInfo && currentUploadInfo.hasChunks" class="current-file-info">
+                    <div class="file-name">{{ currentUploadInfo.fileName }}</div>
+                    <div class="chunk-info">
+                        Chunks: {{ currentUploadInfo.chunks }}
+                    </div>
+                </div>
             </div>
             <div class="progress-wrapper">
                 <ProgressBar :progress="uploadingProgress" />
@@ -49,7 +57,23 @@ export default {
             'uploadingProgress',
             'isProcessingFile',
             'fileQueue',
+            'uploadingFiles',
         ]),
+        currentUploadInfo() {
+            const currentFile = this.fileQueue[0];
+            const uploadingFile = currentFile ? this.uploadingFiles[currentFile.id] : null;
+            
+            if (uploadingFile) {
+                return {
+                    fileName: uploadingFile.fileName,
+                    fileSize: uploadingFile.fileSize,
+                    chunks: `${uploadingFile.uploadedChunks}/${uploadingFile.totalChunks}`,
+                    hasChunks: uploadingFile.totalChunks > 1
+                };
+            }
+            
+            return null;
+        }
     },
     methods: {
         cancelUpload() {
@@ -126,6 +150,28 @@ export default {
 
         span {
             @include font-size(14);
+        }
+        
+        .current-file-info {
+            margin-top: 5px;
+            
+            .file-name {
+                @include font-size(12);
+                font-weight: 500;
+                color: $text;
+                text-overflow: ellipsis;
+                overflow: hidden;
+                white-space: nowrap;
+                max-width: 300px;
+                margin: 0 auto;
+            }
+            
+            .chunk-info {
+                @include font-size(11);
+                font-weight: 400;
+                color: $text-muted;
+                margin-top: 2px;
+            }
         }
     }
 }

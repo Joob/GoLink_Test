@@ -49,6 +49,9 @@
           <span class="progress-eta" v-if="file.eta">
             ETA: {{ formatTime(file.eta) }}
           </span>
+          <span class="chunk-progress" v-if="file.totalChunks > 1">
+            Chunk: {{ file.chunkIndex + 1 }}/{{ file.totalChunks }}
+          </span>
         </div>
 
         <div class="progress-actions" v-if="file.status !== 'completed'">
@@ -111,7 +114,28 @@ export default {
       return Math.round(totalProgress / this.totalFiles);
     }
   },
+  mounted() {
+    // Listen for detailed upload progress events
+    this.$root.$on('upload-progress-detailed', this.handleDetailedProgress);
+  },
+  beforeDestroy() {
+    // Clean up event listeners
+    this.$root.$off('upload-progress-detailed', this.handleDetailedProgress);
+  },
   methods: {
+    handleDetailedProgress(data) {
+      // Find the currently uploading file and update with detailed progress
+      const currentFile = Object.values(this.files).find(file => file.status === 'uploading');
+      if (currentFile) {
+        this.updateProgress(currentFile.id, {
+          progress: data.progress,
+          uploadedBytes: data.totalUploadedSize,
+          chunkIndex: data.chunkIndex,
+          totalChunks: data.totalChunks,
+          chunkProgress: data.chunkProgress
+        });
+      }
+    },
     addFile(fileData) {
       this.$set(this.files, fileData.id, {
         id: fileData.id,
@@ -123,7 +147,10 @@ export default {
         eta: 0,
         error: null,
         startTime: Date.now(),
-        uploadedBytes: 0
+        uploadedBytes: 0,
+        chunkIndex: 0,
+        totalChunks: 1,
+        chunkProgress: 0
       });
       this.totalFiles++;
     },
@@ -135,14 +162,20 @@ export default {
       const now = Date.now();
       const timeElapsed = (now - file.startTime) / 1000;
       
-      file.progress = data.progress;
-      file.uploadedBytes = data.uploadedBytes;
+      file.progress = data.progress || file.progress;
+      file.uploadedBytes = data.uploadedBytes || file.uploadedBytes;
+      file.chunkIndex = data.chunkIndex || file.chunkIndex;
+      file.totalChunks = data.totalChunks || file.totalChunks;
+      file.chunkProgress = data.chunkProgress || file.chunkProgress;
       
-      // Calculate speed and ETA
-      if (timeElapsed > 0) {
+      // Calculate speed and ETA with better accuracy for large files
+      if (timeElapsed > 1) { // Wait at least 1 second for accurate calculation
         file.speed = file.uploadedBytes / timeElapsed;
         const remainingBytes = file.size - file.uploadedBytes;
-        file.eta = remainingBytes / file.speed;
+        
+        if (file.speed > 0) {
+          file.eta = remainingBytes / file.speed;
+        }
       }
       
       this.$forceUpdate();
@@ -207,7 +240,8 @@ export default {
     formatTime(seconds) {
       if (seconds < 60) return Math.round(seconds) + 's';
       if (seconds < 3600) return Math.round(seconds / 60) + 'm';
-      return Math.round(seconds / 3600) + 'h';
+      if (seconds < 86400) return Math.round(seconds / 3600) + 'h';
+      return Math.round(seconds / 86400) + 'd';
     }
   }
 }
@@ -327,6 +361,13 @@ export default {
   font-size: 12px;
   color: #6c757d;
   margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chunk-progress {
+  font-weight: 500;
+  color: #495057;
 }
 
 .progress-actions {

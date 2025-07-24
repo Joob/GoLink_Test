@@ -28,26 +28,36 @@
 
         <!--Menu links-->
         <MenuMobileGroup>
-            <!--User Storage Warning - Corrigido-->
+            <!--User Storage Warning - SÓ aparece quando resta 10% ou menos-->
             <div v-if="shouldShowStorageWarning && !clickedSubmenu" class="storage-warning-mobile">
                 <div 
                     class="storage-warning-content-mobile"
-                    :title="$t('total_warning', { remaining: remainingStorage, percentage: remainingPercentage.toFixed(1) })"
+                    :title="`Atenção: Apenas ${remainingPercentage.toFixed(1)}% de espaço livre (${remainingStorage} restantes)`"
                 >
                     <div class="warning-header">
                         <span class="warning-icon">⚠️</span>
+                        <span class="warning-title">{{ $t('storage_warning') }}</span>
                     </div>
                     
                     <div class="storage-details">
                         <div class="usage-info">
                             <span class="label">{{ $t('used') }}:</span>
-                            <span class="value-used">{{ storage.data.attributes.used }}</span>
+                            <span class="value-used">{{ storageUsed }}</span>
                         </div>
                         
                         <div class="capacity-info">
                             <span class="label">{{ $t('total') }}:</span>
-                            <span class="value-total">{{ storage.data.attributes.capacity }}</span>
+                            <span class="value-total">{{ storageCapacity }}</span>
                         </div>
+                        
+                        <div class="remaining-info">
+                            <span class="label">{{ $t('remaining') }}:</span>
+                            <span class="value-remaining">{{ remainingStorage }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-bar">
+                        <div class="progress-fill" :style="`width: ${storageUsedPercentage}%`"></div>
                     </div>
                 </div>
             </div>
@@ -201,39 +211,62 @@ export default {
     computed: {
         ...mapGetters(['config', 'user']),
         
+        storageUsedBytes() {
+            if (!this.storage?.data?.attributes?.used) return 0;
+            return this.parseStorageValue(this.storage.data.attributes.used);
+        },
+        
+        storageCapacityBytes() {
+            if (!this.storage?.data?.attributes?.capacity) return 0;
+            return this.parseStorageValue(this.storage.data.attributes.capacity);
+        },
+        
+        storageUsed() {
+            return this.storage?.data?.attributes?.used || '0 B';
+        },
+        
+        storageCapacity() {
+            return this.storage?.data?.attributes?.capacity || '0 B';
+        },
+        
         storageUsedPercentage() {
-            if (!this.storage?.data?.attributes?.used || !this.storage?.data?.attributes?.capacity) {
-                return 0;
-            }
-            
-            const used = parseFloat(this.storage.data.attributes.used);
-            const capacity = parseFloat(this.storage.data.attributes.capacity);
-            
-            return (used / capacity) * 100;
+            if (this.storageCapacityBytes === 0) return 0;
+            return (this.storageUsedBytes / this.storageCapacityBytes) * 100;
+        },
+        
+        remainingBytes() {
+            return Math.max(0, this.storageCapacityBytes - this.storageUsedBytes);
         },
         
         remainingPercentage() {
-            return 100 - this.storageUsedPercentage;
+            if (this.storageCapacityBytes === 0) return 100;
+            return (this.remainingBytes / this.storageCapacityBytes) * 100;
         },
         
         remainingStorage() {
-            if (!this.storage?.data?.attributes?.used || !this.storage?.data?.attributes?.capacity) {
-                return '0 B';
-            }
-            
-            const used = parseFloat(this.storage.data.attributes.used);
-            const capacity = parseFloat(this.storage.data.attributes.capacity);
-            const remaining = capacity - used;
-            
-            return this.formatStorageSize(remaining);
+            return this.formatStorageSize(this.remainingBytes);
         },
         
         shouldShowStorageWarning() {
-            return this.config?.subscriptionType === 'fixed' && 
-                this.config?.storageLimit && 
-                this.storage?.data?.attributes && 
-                this.remainingPercentage <= 10 &&
-                this.user; // Só mostrar se o usuário estiver logado
+            // Só verificar se tem plano fixo
+            if (this.config?.subscriptionType !== 'fixed' || !this.config?.storageLimit) {
+                return false;
+            }
+            
+            // Verificar se tem dados válidos
+            if (!this.storage?.data?.attributes?.used || !this.storage?.data?.attributes?.capacity) {
+                return false;
+            }
+            
+            // Verificar se usuário está logado
+            if (!this.user) {
+                return false;
+            }
+            
+            // MOSTRAR WARNING APENAS QUANDO RESTA 10% OU MENOS
+            const showWarning = this.remainingPercentage <= 10;
+
+            return showWarning;
         },
         
         isAdmin() {
@@ -256,13 +289,56 @@ export default {
             storage: { data: { attributes: { used: 0, capacity: 0 } } },
             isLoading: true,
             isNavigating: false,
-            storageInterval: null, // Adicionado para controlar o interval
-            isLoggingOut: false, // Flag para indicar se está fazendo logout
+            storageInterval: null,
+            isLoggingOut: false,
             storageRequest: null,
         }
     },
     
     methods: {
+        parseStorageValue(value) {
+            // Se já for número, retornar direto
+            if (typeof value === 'number') {
+                return value;
+            }
+            
+            // Se for string, fazer parse
+            if (typeof value === 'string') {
+                // Remover espaços e converter para uppercase
+                const cleanValue = value.trim().toUpperCase();
+                
+                // Regex para capturar número e unidade
+                const match = cleanValue.match(/^([\d.]+)\s*([KMGT]?B)?$/);
+                if (!match) return 0;
+                
+                const num = parseFloat(match[1]);
+                const unit = match[2] || 'B';
+                
+                // Multiplicadores para cada unidade
+                const multipliers = {
+                    'B': 1,
+                    'KB': 1024,
+                    'MB': 1024 ** 2,
+                    'GB': 1024 ** 3,
+                    'TB': 1024 ** 4
+                };
+                
+                return num * (multipliers[unit] || 1);
+            }
+            
+            return 0;
+        },
+        
+        formatStorageSize(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            
+            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const k = 1024;
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + units[i];
+        },
+        
         async goToRoute(route) {
             if (this.isNavigating || this.isLoggingOut) return;
             
@@ -366,7 +442,7 @@ export default {
             if (this.isNavigating || this.isLoggingOut) return;
             
             try {
-                this.isLoggingOut = true; // Marcar que está fazendo logout
+                this.isLoggingOut = true;
                 this.isNavigating = true;
                 
                 // Cancelar qualquer requisição de storage pendente
@@ -423,7 +499,7 @@ export default {
                             // Se as condições não forem mais atendidas, limpar o interval
                             this.clearStorageInterval();
                         }
-                    }, 10000);
+                    }, 10000); // Atualiza a cada 10 segundos
                 }
             }
         },
@@ -433,24 +509,6 @@ export default {
                 this.$parent.closeMobileMenu();
             } else {
                 this.$emit('close-mobile-menu');
-            }
-        },
-        
-        formatStorageSize(bytes) {
-            if (!bytes || bytes === 0) return '0 B';
-            
-            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-            const k = 1024;
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + units[i];
-        },
-
-        // Método para limpar o interval
-        clearStorageInterval() {
-            if (this.storageInterval) {
-                clearInterval(this.storageInterval);
-                this.storageInterval = null;
             }
         },
     },
@@ -494,7 +552,7 @@ export default {
 </script>
 
 <style scoped lang="scss">
-// Storage Warning Styles para Mobile
+// Storage Warning Styles para Mobile - Aparece APENAS quando resta 10% ou menos
 .storage-warning-mobile {
     margin: 0.75rem 1.25rem;
     padding: 0;
@@ -603,7 +661,7 @@ export default {
             
             .progress-fill {
                 height: 100%;
-                background: linear-gradient(90deg, #dc2626 0%, #f59e0b 70%, #dc2626 100%);
+                background: linear-gradient(90deg, #dc2626 0%, #f59e0b 50%, #dc2626 100%);
                 border-radius: 0.25rem;
                 transition: width 0.5s ease;
                 position: relative;

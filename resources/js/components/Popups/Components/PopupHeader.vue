@@ -26,9 +26,9 @@
 
 <script>
 import {
-	Link2Icon,
-	BellIcon,
-	UploadCloudIcon,
+    Link2Icon,
+    BellIcon,
+    UploadCloudIcon,
     CreditCardIcon,
     KeyIcon,
     UserPlusIcon,
@@ -45,9 +45,9 @@ export default {
     name: 'PopupHeader',
     props: ['title', 'icon'],
     components: {
-		Link2Icon,
-		BellIcon,
-		UploadCloudIcon,
+        Link2Icon,
+        BellIcon,
+        UploadCloudIcon,
         CornerDownRightIcon,
         CreditCardIcon,
         UserPlusIcon,
@@ -60,6 +60,10 @@ export default {
     },
     methods: {
         closePopup() {
+            // Emit to parent component
+            this.$emit('close')
+            
+            // Also emit to event bus if needed elsewhere
             events.$emit('popup:close')
         },
     },

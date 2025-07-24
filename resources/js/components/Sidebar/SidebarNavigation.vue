@@ -60,18 +60,17 @@
 
         <!--Logout-->
         <div class="mt-auto text-center">
-            <!--Storage Warning - Corrigido-->
+            <!--Storage Warning - SÓ aparece quando resta 10% ou menos de espaço-->
             <div v-if="shouldShowStorageWarning" class="storage-warning">
                 <div 
                     class="storage-warning-content" 
-                    :title="$t('total_warning', { remaining: remainingStorage, percentage: remainingPercentage })"
+                    :title="`Atenção: Apenas ${remainingPercentage.toFixed(1)}% de espaço livre (${remainingStorage} restantes)`"
                 >
                     <div class="warning-icon">⚠️</div>
                     <div class="storage-text">
-                        <!--<span class="warning-text">{{ $t('storage_warning_short') }}</span>-->
-                        <span class="usage-amount">{{ updatedStorageUsed }}</span>
-                        <span class="capacity-text">{{ storage.data.attributes.capacity }}</span>
-                        <!--<span class="remaining-text">{{ remainingStorage }} {{ $t('remaining') }}</span>-->
+                        <span class="usage-amount">{{ storageUsed }}</span>
+                        <span class="separator">/</span>
+                        <span class="capacity-text">{{ storageCapacity }}</span>
                     </div>
                 </div>
             </div>
@@ -130,45 +129,58 @@ export default {
     computed: {
         ...mapGetters(['isVisibleNavigationBars', 'isDarkMode', 'config', 'user', 'isVisibleNotificationCenter']),
         
-        storageUsedPercentage() {
-            if (!this.storage?.data?.attributes?.used || !this.storage?.data?.attributes?.capacity) {
-                return 0;
-            }
-            
-            const used = parseFloat(this.storage.data.attributes.used);
-            const capacity = parseFloat(this.storage.data.attributes.capacity);
-            
-            return (used / capacity) * 100;
+        storageUsedBytes() {
+            if (!this.storage?.data?.attributes?.used) return 0;
+            return this.parseStorageValue(this.storage.data.attributes.used);
+        },
+        
+        storageCapacityBytes() {
+            if (!this.storage?.data?.attributes?.capacity) return 0;
+            return this.parseStorageValue(this.storage.data.attributes.capacity);
+        },
+        
+        storageUsed() {
+            return this.storage?.data?.attributes?.used || '0 B';
+        },
+        
+        storageCapacity() {
+            return this.storage?.data?.attributes?.capacity || '0 B';
+        },
+        
+        remainingBytes() {
+            return Math.max(0, this.storageCapacityBytes - this.storageUsedBytes);
         },
         
         remainingPercentage() {
-            return 100 - this.storageUsedPercentage;
+            if (this.storageCapacityBytes === 0) return 100;
+            return (this.remainingBytes / this.storageCapacityBytes) * 100;
         },
         
         remainingStorage() {
-            if (!this.storage?.data?.attributes?.used || !this.storage?.data?.attributes?.capacity) {
-                return '0';
-            }
-            
-            const used = parseFloat(this.storage.data.attributes.used);
-            const capacity = parseFloat(this.storage.data.attributes.capacity);
-            const remaining = capacity - used;
-            
-            // Formatar o valor com a mesma unidade da capacidade
-            return this.formatStorageSize(remaining);
+            return this.formatStorageSize(this.remainingBytes);
         },
         
         shouldShowStorageWarning() {
-            // Mostrar aviso quando restam 10% ou menos do espaço disponível
-            return this.config?.subscriptionType === 'fixed' && 
-                this.config?.storageLimit && 
-                this.storage?.data?.attributes && 
-                this.remainingPercentage <= 10 &&
-                this.user; // Só mostrar se o usuário estiver logado
-        },
-        
-        updatedStorageUsed() {
-            return this.storage?.data?.attributes?.used || '';
+            // Só verificar se tem plano fixo
+            if (this.config?.subscriptionType !== 'fixed' || !this.config?.storageLimit) {
+                return false;
+            }
+            
+            // Verificar se tem dados válidos
+            if (!this.storage?.data?.attributes?.used || !this.storage?.data?.attributes?.capacity) {
+                return false;
+            }
+            
+            // Verificar se usuário está logado
+            if (!this.user) {
+                return false;
+            }
+            
+            // MOSTRAR WARNING APENAS QUANDO RESTA 10% OU MENOS
+            // No seu caso: 1TB total, warning aparece quando resta 100GB ou menos
+            const showWarning = this.remainingPercentage <= 10;
+            
+            return showWarning;
         },
         
         navigation() {
@@ -228,6 +240,49 @@ export default {
             return this.$route.matched[0].name === section
         },
         
+        parseStorageValue(value) {
+            // Se já for número, retornar direto
+            if (typeof value === 'number') {
+                return value;
+            }
+            
+            // Se for string, fazer parse
+            if (typeof value === 'string') {
+                // Remover espaços e converter para uppercase
+                const cleanValue = value.trim().toUpperCase();
+                
+                // Regex para capturar número e unidade
+                const match = cleanValue.match(/^([\d.]+)\s*([KMGT]?B)?$/);
+                if (!match) return 0;
+                
+                const num = parseFloat(match[1]);
+                const unit = match[2] || 'B';
+                
+                // Multiplicadores para cada unidade
+                const multipliers = {
+                    'B': 1,
+                    'KB': 1024,
+                    'MB': 1024 ** 2,
+                    'GB': 1024 ** 3,
+                    'TB': 1024 ** 4
+                };
+                
+                return num * (multipliers[unit] || 1);
+            }
+            
+            return 0;
+        },
+        
+        formatStorageSize(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            
+            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const k = 1024;
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + units[i];
+        },
+        
         fetchStorageData() {
             // Não fazer fetch se não houver usuário, se estiver fazendo logout ou se o componente foi destruído
             if (!this.user || this.isLoggingOut || this._isDestroyed || this.$isServer) {
@@ -276,17 +331,6 @@ export default {
             });
         },
         
-        formatStorageSize(bytes) {
-            if (!bytes || bytes === 0) return '0 B';
-            
-            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-            const k = 1024;
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + units[i];
-        },
-
-        // Método para limpar o interval
         clearStorageInterval() {
             if (this.storageInterval) {
                 clearInterval(this.storageInterval);
@@ -300,7 +344,6 @@ export default {
             }
         },
 
-        // Método para iniciar o fetch de storage
         startStorageFetch() {
             // Só iniciar se houver usuário logado e não estiver fazendo logout
             if (this.user && !this.isLoggingOut && !this._isDestroyed) {
@@ -316,7 +359,7 @@ export default {
                             // Se as condições não forem mais atendidas, limpar o interval
                             this.clearStorageInterval();
                         }
-                    }, 10000);
+                    }, 10000); // Atualiza a cada 10 segundos
                 }
             }
         }
@@ -363,7 +406,7 @@ export default {
 <style scoped lang="scss">
 @import '../../../sass/vuefilemanager/variables';
 
-// Storage Warning Styles - Atualizado
+// Storage Warning - Aparece APENAS quando resta 10% ou menos de espaço
 .storage-warning {
     margin-top: 1rem;
     padding: 0.25rem;
@@ -406,17 +449,10 @@ export default {
         
         .storage-text {
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             align-items: center;
-            gap: 0.1rem;
-            
-            .warning-text {
-                font-size: 0.55rem;
-                font-weight: bold;
-                color: #dc2626;
-                line-height: 1;
-                text-transform: uppercase;
-            }
+            justify-content: center;
+            gap: 0.2rem;
             
             .usage-amount {
                 font-size: 0.6rem;
@@ -425,19 +461,16 @@ export default {
                 line-height: 1;
             }
             
+            .separator {
+                font-size: 0.5rem;
+                color: #6b7280;
+                line-height: 1;
+            }
+            
             .capacity-text {
                 font-size: 0.5rem;
                 color: #6b7280;
                 line-height: 1;
-                word-break: break-all;
-            }
-            
-            .remaining-text {
-                font-size: 0.45rem;
-                color: #dc2626;
-                font-weight: 600;
-                line-height: 1;
-                margin-top: 0.1rem;
             }
         }
     }

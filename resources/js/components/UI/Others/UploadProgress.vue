@@ -175,6 +175,7 @@ export default {
             
             .file-list-info {
                 flex: 1;
+                min-width: 0; /* Allow text to truncate properly */
                 
                 .current-file {
                     @include font-size(14);
@@ -183,7 +184,7 @@ export default {
                     text-overflow: ellipsis;
                     overflow: hidden;
                     white-space: nowrap;
-                    max-width: 250px;
+                    max-width: 100%;
                 }
                 
                 .remaining-files {
@@ -191,6 +192,9 @@ export default {
                     font-weight: 400;
                     color: $text-muted;
                     margin-top: 2px;
+                    text-overflow: ellipsis;
+                    overflow: hidden;
+                    white-space: nowrap;
                 }
             }
             

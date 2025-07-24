@@ -49,9 +49,6 @@
           <span class="progress-eta" v-if="file.eta">
             ETA: {{ formatTime(file.eta) }}
           </span>
-          <span class="chunk-progress" v-if="file.totalChunks > 1">
-            Chunk: {{ file.chunkIndex + 1 }}/{{ file.totalChunks }}
-          </span>
         </div>
 
         <div class="progress-actions" v-if="file.status !== 'completed'">
@@ -363,11 +360,6 @@ export default {
   margin-bottom: 10px;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.chunk-progress {
-  font-weight: 500;
-  color: #495057;
 }
 
 .progress-actions {

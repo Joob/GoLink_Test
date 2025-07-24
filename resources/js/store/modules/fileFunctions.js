@@ -274,15 +274,6 @@ const actions = {
                     resolve(response)
 
                     completedUploads++;
-
-                    // Check if all files are uploaded
-                    if (completedUploads === getters.fileQueue.length) {            
-                        events.$emit('toaster', {
-                            type: 'success',
-                            emoji: '⏳',
-                            message: i18n.t('uploaded_success'),
-                        });
-                    }
                     
                     // Proceed if was returned database record
                     if (response.data.data.id) {
@@ -320,8 +311,15 @@ const actions = {
                             Vue.prototype.$handleUploading(getters.fileQueue[0])
                         }
 
-                        // Reset upload process
+                        // Show success toast only when ALL files are uploaded
                         if (!getters.fileQueue.length) {
+                            events.$emit('toaster', {
+                                type: 'success',
+                                emoji: '⏳',
+                                message: i18n.t('uploaded_success'),
+                            });
+                            
+                            // Reset upload process
                             commit('CLEAR_UPLOAD_PROGRESS')
                         }
 

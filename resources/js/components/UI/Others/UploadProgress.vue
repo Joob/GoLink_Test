@@ -8,22 +8,18 @@
                     {{ $t('uploading.processing_file') }}
                 </span>
 
-                <!--Multi file upload-->
-                <span v-if="!isProcessingFile && fileQueue.length > 0">
-                    {{
-                        $t('uploading.progress', {
-                            current: filesInQueueUploaded,
-                            total: filesInQueueTotal,
-                            progress: uploadingProgress,
-                        })
-                    }}
-                </span>
-                
-                <!--Current file info for large files with chunks-->
-                <div v-if="currentUploadInfo && currentUploadInfo.hasChunks" class="current-file-info">
-                    <div class="file-name">{{ currentUploadInfo.fileName }}</div>
-                    <div class="chunk-info">
-                        Chunks: {{ currentUploadInfo.chunks }}
+                <!--File upload progress with current file name and remaining count-->
+                <div v-if="!isProcessingFile && fileQueue.length > 0" class="upload-info">
+                    <div class="file-list-info">
+                        <div class="current-file">
+                            <strong>{{ currentFileName }}</strong>
+                        </div>
+                        <div class="remaining-files">
+                            {{ remainingFilesText }}
+                        </div>
+                    </div>
+                    <div class="progress-info">
+                        {{ uploadingProgress }}%
                     </div>
                 </div>
             </div>
@@ -38,7 +34,7 @@
 </template>
 
 <script>
-import ProgressBar from './ProgressBar'
+import SimpleProgressBar from './SimpleProgressBar'
 import { RefreshCwIcon, XIcon } from 'vue-feather-icons'
 import { mapGetters } from 'vuex'
 import { events } from '../../../bus'
@@ -47,7 +43,7 @@ export default {
     name: 'UploadProgress',
     components: {
         RefreshCwIcon,
-        ProgressBar,
+        ProgressBar: SimpleProgressBar,
         XIcon,
     },
     computed: {
@@ -67,12 +63,30 @@ export default {
                 return {
                     fileName: uploadingFile.fileName,
                     fileSize: uploadingFile.fileSize,
-                    chunks: `${uploadingFile.uploadedChunks}/${uploadingFile.totalChunks}`,
                     hasChunks: uploadingFile.totalChunks > 1
                 };
             }
             
             return null;
+        },
+        currentFileName() {
+            if (this.fileQueue.length > 0) {
+                return this.fileQueue[0].file.name;
+            }
+            return '';
+        },
+        remainingFilesText() {
+            const total = this.filesInQueueTotal;
+            const uploaded = this.filesInQueueUploaded;
+            const remaining = total - uploaded;
+            
+            if (total === 1) {
+                return '1 ficheiro';
+            } else if (remaining === 1) {
+                return `${remaining} ficheiro restante de ${total}`;
+            } else {
+                return `${remaining} ficheiros restantes de ${total}`;
+            }
         }
     },
     methods: {
@@ -152,25 +166,40 @@ export default {
             @include font-size(14);
         }
         
-        .current-file-info {
-            margin-top: 5px;
+        .upload-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            text-align: left;
+            padding: 0 15px;
             
-            .file-name {
-                @include font-size(12);
-                font-weight: 500;
-                color: $text;
-                text-overflow: ellipsis;
-                overflow: hidden;
-                white-space: nowrap;
-                max-width: 300px;
-                margin: 0 auto;
+            .file-list-info {
+                flex: 1;
+                
+                .current-file {
+                    @include font-size(14);
+                    font-weight: 600;
+                    color: $text;
+                    text-overflow: ellipsis;
+                    overflow: hidden;
+                    white-space: nowrap;
+                    max-width: 250px;
+                }
+                
+                .remaining-files {
+                    @include font-size(12);
+                    font-weight: 400;
+                    color: $text-muted;
+                    margin-top: 2px;
+                }
             }
             
-            .chunk-info {
-                @include font-size(11);
-                font-weight: 400;
-                color: $text-muted;
-                margin-top: 2px;
+            .progress-info {
+                @include font-size(14);
+                font-weight: 600;
+                color: $theme;
+                min-width: 50px;
+                text-align: right;
             }
         }
     }

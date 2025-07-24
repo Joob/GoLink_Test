@@ -13,6 +13,7 @@ const defaultState = {
     uploadingProgress: 0,
     fileQueue: [],
     uploadingFiles: {}, // Track individual file upload progress
+    lastProgressUpdate: 0, // Track last progress update time for throttling
 }
 
 const actions = {
@@ -236,6 +237,12 @@ const actions = {
                         'Content-Type': 'application/octet-stream',
                     },
                     onUploadProgress: (event) => {
+                        // Throttle progress updates to make progress bar smoother (max 4 updates per second)
+                        const now = Date.now();
+                        if (now - state.lastProgressUpdate < 250) { // 250ms = 4 updates per second
+                            return;
+                        }
+                        
                         // Calculate more accurate progress including chunk-level progress
                         const chunkProgress = (event.loaded / event.total) * 100;
                         const completedChunkBytes = (chunkIndex || 0) * (chunkSize || 0);
@@ -250,8 +257,9 @@ const actions = {
                         const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(2);
                         const progressText = `${completedSizeMB}MB / ${fileSizeMB}MB`;
 
-                        // Update progress in store
+                        // Update progress in store with throttling
                         commit('UPLOADING_FILE_PROGRESS', overallProgress);
+                        commit('UPDATE_LAST_PROGRESS_TIME', now);
 
                         // Emit detailed progress for UI components
                         events.$emit('upload-progress-detailed', {
@@ -589,6 +597,9 @@ const mutations = {
     UPLOADING_FILE_PROGRESS(state, percentage) {
         state.uploadingProgress = percentage
     },
+    UPDATE_LAST_PROGRESS_TIME(state, time) {
+        state.lastProgressUpdate = time
+    },
     INCREASE_FILES_IN_QUEUES_TOTAL(state) {
         state.filesInQueueTotal += 1
     },
@@ -600,6 +611,8 @@ const mutations = {
         state.filesInQueueTotal = 0
         state.fileQueue = []
         state.uploadingFiles = {}
+        state.uploadingProgress = 0
+        state.lastProgressUpdate = 0
     },
     SET_UPLOAD_FILE_METADATA(state, { fileId, fileName, fileSize, totalChunks, uploadedChunks, chunkMetadata }) {
         Vue.set(state.uploadingFiles, fileId, {

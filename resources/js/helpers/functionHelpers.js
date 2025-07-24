@@ -293,6 +293,9 @@ const FunctionHelpers = {
         }
 
         Vue.prototype.$handleUploading = async function (item) {
+            // Reset progress to 0 when starting a new file upload
+            store.commit('UPLOADING_FILE_PROGRESS', 0);
+            
             // Check if upload should be paused or cancelled
             const uploadingFile = store.getters.uploadingFiles[item.id];
             if (uploadingFile && uploadingFile.status === 'paused') {

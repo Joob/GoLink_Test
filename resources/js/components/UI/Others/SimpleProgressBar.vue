@@ -33,7 +33,7 @@ export default {
 .progress-fill {
   height: 100%;
   background: linear-gradient(90deg, #10b981, #059669);
-  transition: width 0.3s ease;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 3px;
   position: relative;
   min-width: 0;

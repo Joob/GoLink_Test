@@ -239,7 +239,7 @@ const actions = {
                     onUploadProgress: (event) => {
                         // Throttle progress updates to make progress bar smoother (max 4 updates per second)
                         const now = Date.now();
-                        if (now - state.lastProgressUpdate < 250) { // 250ms = 4 updates per second
+                        if (now - getters.lastProgressUpdate < 250) { // 250ms = 4 updates per second
                             return;
                         }
                         
@@ -663,6 +663,7 @@ const getters = {
     processingPopup: (state) => state.processingPopup,
     fileQueue: (state) => state.fileQueue,
     uploadingFiles: (state) => state.uploadingFiles,
+    lastProgressUpdate: (state) => state.lastProgressUpdate,
 }
 
 export default {

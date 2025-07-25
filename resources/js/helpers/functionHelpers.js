@@ -186,9 +186,11 @@ const FunctionHelpers = {
                 return
             }
 
-            // Push items to file queue
-            [...files].map((item) => {
+            // Push items to file queue with unique IDs
+            [...files].map((item, index) => {
+                const fileId = Date.now() + index; // Ensure unique ID
                 store.dispatch('pushFileToTheUploadQueue', {
+                    id: fileId,
                     parent_id: store.getters.currentFolder ? store.getters.currentFolder.data.id : '',
                     file: item,
                     path: '/' + item.webkitRelativePath,
@@ -197,9 +199,10 @@ const FunctionHelpers = {
         }
 
         Vue.prototype.$uploadDraggedFolderOrFile = async function (files, parent_id) {
-            files.map((file) => {
+            files.map((file, index) => {
                 // Get file path
                 let filePath = file.filepath ? '/' + file.filepath : undefined
+                const fileId = Date.now() + index; // Ensure unique ID
 
                 // Determine if we are uploading folder or file
                 if (filePath.split('/').length > 2) {
@@ -208,6 +211,7 @@ const FunctionHelpers = {
                 
                 // Push file to the upload queue
                 store.dispatch('pushFileToTheUploadQueue', {
+                    id: fileId,
                     parent_id: parent_id || '',
                     path: filePath,
                     file: file,
@@ -215,15 +219,118 @@ const FunctionHelpers = {
             })
         }
 
-        Vue.prototype.$handleUploading = async function (item) {
-            // Create ceil
-            let size = store.getters.config.chunkSize,
-                chunksCeil = Math.ceil(item.file.size / size),
-                chunks = []
+        Vue.prototype.$pauseUpload = function (fileId) {
+            const uploadingFile = store.getters.uploadingFiles[fileId];
+            if (uploadingFile) {
+                store.commit('SET_UPLOAD_FILE_STATUS', { fileId, status: 'paused' });
+                events.$emit('upload-paused', fileId);
+            }
+        }
 
-            // Create chunks
+        Vue.prototype.$resumeUpload = function (fileId) {
+            const uploadingFile = store.getters.uploadingFiles[fileId];
+            if (uploadingFile) {
+                store.commit('SET_UPLOAD_FILE_STATUS', { fileId, status: 'uploading' });
+                // Find the file in queue and resume upload
+                const fileInQueue = store.getters.fileQueue.find(f => f.id === fileId);
+                if (fileInQueue) {
+                    Vue.prototype.$handleUploading(fileInQueue);
+                }
+                events.$emit('upload-resumed', fileId);
+            }
+        }
+
+        Vue.prototype.$cancelUpload = function (fileId) {
+            const uploadingFile = store.getters.uploadingFiles[fileId];
+            if (uploadingFile) {
+                store.commit('CLEAR_UPLOAD_FILE_METADATA', fileId);
+                // Remove from queue
+                store.commit('REMOVE_FILE_FROM_QUEUE', fileId);
+                events.$emit('upload-cancelled', fileId);
+            }
+        }
+
+        Vue.prototype.$getOptimalChunkSize = function (fileSize, customChunkSize = null) {
+            // Allow manual override of chunk size via config or parameter
+            if (customChunkSize && customChunkSize > 0) {
+                return customChunkSize;
+            }
+
+            // Check if there's a global chunk size override in config
+            const configChunkSize = store.getters.config?.chunkSize;
+            const useDefaultChunkingStrategy = store.getters.config?.useOptimalChunking !== false;
+
+            // If optimal chunking is disabled, use the config chunk size
+            if (!useDefaultChunkingStrategy && configChunkSize) {
+                return configChunkSize;
+            }
+
+            // Define size thresholds in bytes
+            const KB = 1024;
+            const MB = KB * 1024;
+            const GB = MB * 1024;
+
+            // Dynamic chunk sizing based on file size for optimal performance
+            if (fileSize < 10 * MB) {
+                // Small files: 512KB chunks
+                return 512 * KB;
+            } else if (fileSize < 100 * MB) {
+                // Medium files: 2MB chunks
+                return 2 * MB;
+            } else if (fileSize < 1 * GB) {
+                // Large files: 8MB chunks
+                return 8 * MB;
+            } else if (fileSize < 10 * GB) {
+                // Very large files: 32MB chunks
+                return 32 * MB;
+            } else if (fileSize < 100 * GB) {
+                // Extremely large files: 64MB chunks
+                return 64 * MB;
+            } else {
+                // TB range files: 256MB chunks for maximum efficiency
+                return 256 * MB;
+            }
+        }
+
+        Vue.prototype.$handleUploading = async function (item) {
+            // Reset progress to 0 when starting a new file upload
+            store.commit('UPLOADING_FILE_PROGRESS', 0);
+            
+            // Check if upload should be paused or cancelled
+            const uploadingFile = store.getters.uploadingFiles[item.id];
+            if (uploadingFile && uploadingFile.status === 'paused') {
+                console.log('Upload paused for file:', item.file.name);
+                return;
+            }
+
+            // Get optimal chunk size based on file size
+            let size = this.$getOptimalChunkSize(item.file.size),
+                chunksCeil = Math.ceil(item.file.size / size),
+                chunks = [],
+                chunkMetadata = []
+
+            // Safety check for very large number of chunks
+            if (chunksCeil > 50000) {
+                console.warn('File has too many chunks, increasing chunk size for safety');
+                size = Math.ceil(item.file.size / 50000); // Limit to maximum 50k chunks
+                chunksCeil = Math.ceil(item.file.size / size);
+            }
+
+            // Create chunks with metadata for better tracking
             for (let i = 0; i < chunksCeil; i++) {
-                chunks.push(item.file.slice(i * size, Math.min(i * size + size, item.file.size), item.file.type))
+                const start = i * size;
+                const end = Math.min(start + size, item.file.size);
+                const chunkBlob = item.file.slice(start, end, item.file.type);
+                
+                chunks.push(chunkBlob);
+                chunkMetadata.push({
+                    index: i,
+                    start: start,
+                    end: end,
+                    size: chunkBlob.size,
+                    uploaded: false,
+                    attempts: 0
+                });
             }
 
             // Set Data
@@ -241,16 +348,39 @@ const FunctionHelpers = {
                     striped_to_safe_characters +
                     '.part'
 
+            // Store initial file metadata for progress tracking
+            store.commit('SET_UPLOAD_FILE_METADATA', {
+                fileId: item.id || Date.now(),
+                fileName: item.file.name,
+                fileSize: item.file.size,
+                totalChunks: chunksCeil,
+                uploadedChunks: 0,
+                chunkMetadata: chunkMetadata
+            });
+
+            let chunkIndex = 0;
             do {
+                // Check again if upload should be paused
+                const currentUploadingFile = store.getters.uploadingFiles[item.id];
+                if (currentUploadingFile && currentUploadingFile.status === 'paused') {
+                    console.log('Upload paused during chunk upload for file:', item.file.name);
+                    return;
+                }
+
                 let isLastChunk = chunks.length === 1 ? 1 : 0,
                     chunk = chunks.shift(),
-                    attempts = 0
+                    currentChunkMeta = chunkMetadata[chunkIndex],
+                    attempts = 0,
+                    maxAttempts = 3,
+                    retryDelay = 1000 // Start with 1 second delay
 
                 // Set form data
                 formData.set('name', item.file.name)
                 formData.set('chunk', chunk, source_name)
                 formData.set('extension', item.file.name.split('.').pop())
                 formData.set('is_last_chunk', isLastChunk)
+                formData.set('chunk_index', chunkIndex)
+                formData.set('total_chunks', chunksCeil)
 
                 if (item.path && item.path !== '/')
                     formData.set('path', item.path)
@@ -258,45 +388,86 @@ const FunctionHelpers = {
                 if (item.parent_id)
                     formData.set('parent_id', item.parent_id)
 
-                // Upload chunks
+                // Upload chunks with exponential backoff retry
                 do {
-                    await store
-                        .dispatch('uploadFiles', {
+                    try {
+                        await store.dispatch('uploadFiles', {
                             form: formData,
                             fileSize: item.file.size,
                             totalUploadedSize: uploadedSize,
-                        })
-                        .then(() => {
-                            uploadedSize = uploadedSize + chunk.size
-                        })
-                        .catch((error) => {
-                            // Count attempts
-                            attempts++
+                            chunkIndex: chunkIndex,
+                            totalChunks: chunksCeil,
+                            chunkSize: chunk.size
+                        });
 
-                            // Show Error
-                            //if (attempts === 3)
+                        // Update progress tracking
+                        uploadedSize += chunk.size;
+                        currentChunkMeta.uploaded = true;
+                        
+                        // Update chunk progress in store
+                        store.commit('UPDATE_CHUNK_PROGRESS', {
+                            fileId: item.id || Date.now(),
+                            chunkIndex: chunkIndex,
+                            uploaded: true
+                        });
 
-                            // Break uploading process
-                            if ([500, 422].includes(error.response.status)) {
-                                isNotGeneralError = false
-                                //this.$isSomethingWrong()
+                        attempts = 0; // Reset attempts on success
+                        break;
+
+                    } catch (error) {
+                        attempts++;
+                        currentChunkMeta.attempts = attempts;
+
+                        console.warn(`Chunk ${chunkIndex} upload attempt ${attempts} failed:`, error);
+
+                        // Handle different error types
+                        if (error.response) {
+                            const statusCode = error.response.status;
+                            
+                            // Permanent errors - don't retry
+                            if ([422, 413, 415, 423].includes(statusCode)) {
+                                console.error(`Permanent error ${statusCode} for chunk ${chunkIndex}`);
+                                isNotGeneralError = false;
+                                break;
                             }
+                            
+                            // Server errors - retry with backoff
+                            if ([500, 502, 503, 504].includes(statusCode) && attempts < maxAttempts) {
+                                // Exponential backoff: 1s, 2s, 4s
+                                const delay = retryDelay * Math.pow(2, attempts - 1);
+                                console.log(`Retrying chunk ${chunkIndex} in ${delay}ms...`);
+                                await new Promise(resolve => setTimeout(resolve, delay));
+                                continue;
+                            }
+                        }
 
-                            // Show Error
-                            if (attempts === 1)
-                                //this.$isSomethingWrong()
-                                store.commit('PROCESSING_FILE', false)
-                                store.commit('CLEAR_UPLOAD_PROGRESS')
+                        // Network errors - retry with backoff
+                        if (!error.response && attempts < maxAttempts) {
+                            const delay = retryDelay * Math.pow(2, attempts - 1);
+                            console.log(`Network error, retrying chunk ${chunkIndex} in ${delay}ms...`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            continue;
+                        }
 
-                            // Break uploading process
-                           /* if ([500, 415].includes(error.response.status))
-                                isNotGeneralError = false*/
+                        // Max attempts reached or permanent error
+                        if (attempts >= maxAttempts) {
+                            console.error(`Chunk ${chunkIndex} failed after ${maxAttempts} attempts`);
+                            isNotGeneralError = false;
+                            store.commit('PROCESSING_FILE', false);
+                            store.commit('CLEAR_UPLOAD_PROGRESS');
+                        }
+                        
+                        break;
+                    }
+                } while (attempts > 0 && attempts < maxAttempts && isNotGeneralError);
 
-                            //store.commit('PROCESSING_FILE', false)
-                            //store.commit('CLEAR_UPLOAD_PROGRESS')
-                        })
-                } while (isNotGeneralError && attempts !== 0 && attempts !== 3)
-            } while (isNotGeneralError && chunks.length !== 0)
+                chunkIndex++;
+            } while (isNotGeneralError && chunks.length !== 0);
+
+            // Clean up file metadata after upload completes or fails
+            if (chunks.length === 0 || !isNotGeneralError) {
+                store.commit('CLEAR_UPLOAD_FILE_METADATA', item.id || Date.now());
+            }
         }
 
         Vue.prototype.$downloadFile = function (url, filename) {

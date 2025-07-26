@@ -14,6 +14,7 @@ const defaultState = {
     fileQueue: [],
     uploadingFiles: {}, // Track individual file upload progress
     lastProgressUpdate: 0, // Track last progress update time for throttling
+    activeCancelTokens: {}, // Track active axios cancel tokens for each file
 }
 
 const actions = {
@@ -216,7 +217,7 @@ const actions = {
             .catch(() => Vue.prototype.$isSomethingWrong())
 
     },
-    uploadFiles: ({ commit, getters, dispatch}, { form, fileSize, totalUploadedSize, chunkIndex, totalChunks, chunkSize }) => {
+    uploadFiles: ({ commit, getters, dispatch}, { form, fileSize, totalUploadedSize, chunkIndex, totalChunks, chunkSize, fileId }) => {
         return new Promise((resolve, reject) => {
             // Get route
             let route = {
@@ -227,6 +228,11 @@ const actions = {
             // Create cancel token for axios cancellation
             const CancelToken = axios.CancelToken,
                 source = CancelToken.source()
+            
+            // Store cancel token in state for this file
+            if (fileId) {
+                commit('SET_CANCEL_TOKEN', { fileId, cancelToken: source });
+            }
             
             let completedUploads = 0;
 
@@ -279,6 +285,11 @@ const actions = {
                     },
                 })
                 .then(async (response) => {
+                    // Clean up cancel token for this file
+                    if (fileId) {
+                        commit('REMOVE_CANCEL_TOKEN', fileId);
+                    }
+                    
                     resolve(response)
 
                     completedUploads++;
@@ -347,6 +358,18 @@ const actions = {
                     }
                 })
                 .catch((error) => {
+                    // Clean up cancel token for this file
+                    if (fileId) {
+                        commit('REMOVE_CANCEL_TOKEN', fileId);
+                    }
+                    
+                    // Check if this is a cancellation error
+                    if (axios.isCancel(error)) {
+                        console.log('Upload cancelled:', error.message);
+                        reject(error);
+                        return;
+                    }
+                    
                     try {
                       let title = '';
                       let message = '';
@@ -613,6 +636,7 @@ const mutations = {
         state.uploadingFiles = {}
         state.uploadingProgress = 0
         state.lastProgressUpdate = 0
+        // Don't clear activeCancelTokens here as they should be cleaned up individually
     },
     SET_UPLOAD_FILE_METADATA(state, { fileId, fileName, fileSize, totalChunks, uploadedChunks, chunkMetadata }) {
         Vue.set(state.uploadingFiles, fileId, {
@@ -652,6 +676,31 @@ const mutations = {
             state.fileQueue.splice(index, 1);
         }
     },
+    SET_CANCEL_TOKEN(state, { fileId, cancelToken }) {
+        Vue.set(state.activeCancelTokens, fileId, cancelToken);
+    },
+    REMOVE_CANCEL_TOKEN(state, fileId) {
+        Vue.delete(state.activeCancelTokens, fileId);
+    },
+    CLEAR_ALL_CANCEL_TOKENS(state) {
+        // Cancel all active uploads
+        let cancelledCount = 0;
+        Object.values(state.activeCancelTokens).forEach(cancelToken => {
+            if (cancelToken && typeof cancelToken.cancel === 'function') {
+                cancelToken.cancel('Upload cancelled by user');
+                cancelledCount++;
+            }
+        });
+        state.activeCancelTokens = {};
+        
+        // Show toast if any uploads were cancelled
+        if (cancelledCount > 0) {
+            events.$emit('toaster', { 
+                type: 'danger',
+                message: i18n.t('uploaded_canceled'),
+            });
+        }
+    },
 }
 
 const getters = {
@@ -664,6 +713,7 @@ const getters = {
     fileQueue: (state) => state.fileQueue,
     uploadingFiles: (state) => state.uploadingFiles,
     lastProgressUpdate: (state) => state.lastProgressUpdate,
+    activeCancelTokens: (state) => state.activeCancelTokens,
 }
 
 export default {

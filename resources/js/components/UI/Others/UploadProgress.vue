@@ -92,14 +92,9 @@ export default {
     },
     methods: {
         cancelUpload() {
-            events.$emit('cancel-upload')
-            this.$store.commit('CLEAR_UPLOAD_PROGRESS')
-            setTimeout(() => {
-                events.$emit('toaster', { 
-                    type: 'danger',
-                    message: this.$t('uploaded_canceled'),
-                })
-            }, 1000) // 1 seconds delay
+            // Cancel all active uploads
+            this.$store.commit('CLEAR_ALL_CANCEL_TOKENS');
+            this.$store.commit('CLEAR_UPLOAD_PROGRESS');
         },
     },
 }
@@ -284,12 +279,109 @@ export default {
         width: 280px;
         right: 10px;
         bottom: 10px;
+        font-size: 13px;
+    }
+    
+    .upload-progress-header {
+        padding: 10px 12px;
+        
+        .upload-title {
+            @include font-size(13);
+        }
+        
+        .cancel-button {
+            width: 24px;
+            height: 24px;
+        }
+    }
+    
+    .upload-progress-body {
+        padding: 12px;
+    }
+    
+    .file-info {
+        .file-name {
+            @include font-size(13);
+            margin-bottom: 6px;
+        }
+        
+        .file-stats {
+            .progress-percentage {
+                @include font-size(15);
+            }
+            
+            .remaining-files {
+                @include font-size(11);
+            }
+        }
     }
 }
 
 @media (max-width: 320px) {
     .upload-progress-container {
-        width: 250px;
+        width: calc(100vw - 20px);
+        right: 10px;
+        left: 10px;
+        max-width: 250px;
+    }
+    
+    .upload-progress-header {
+        padding: 8px 10px;
+        
+        .upload-title {
+            @include font-size(12);
+        }
+        
+        .cancel-button {
+            width: 22px;
+            height: 22px;
+        }
+    }
+    
+    .upload-progress-body {
+        padding: 10px;
+    }
+    
+    .file-info {
+        margin-bottom: 10px;
+        
+        .file-name {
+            @include font-size(12);
+            margin-bottom: 4px;
+        }
+        
+        .file-stats {
+            .progress-percentage {
+                @include font-size(14);
+            }
+            
+            .remaining-files {
+                @include font-size(10);
+            }
+        }
+    }
+}
+
+// Additional mobile landscape fixes
+@media (max-width: 767px) and (orientation: landscape) {
+    .upload-progress-container {
+        bottom: 10px;
+        max-height: calc(100vh - 20px);
+    }
+}
+
+// Very small screens (iPhone SE, etc.)
+@media (max-width: 280px) {
+    .upload-progress-container {
+        width: calc(100vw - 16px);
+        right: 8px;
+        left: 8px;
+    }
+    
+    .file-info .file-stats {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
     }
 }
 </style>

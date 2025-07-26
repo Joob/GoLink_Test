@@ -4,7 +4,7 @@ namespace Domain\Admin\Controllers\Dashboard;
 use App\Users\Models\User;
 use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
-use App\Users\Resources\UsersCollection;
+use App\Users\Resources\UserResource;
 
 class GetNewbiesController extends Controller
 {
@@ -15,7 +15,8 @@ class GetNewbiesController extends Controller
         ])
             ->take(5)
             ->get();
-
-        return response()->json(new UsersCollection($users));
+        
+        // Correção: use UserResource::collection para garantir os campos corretos
+        return response()->json(UserResource::collection($users));
     }
 }

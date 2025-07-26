@@ -37,13 +37,4 @@ class LoginController extends Controller
     {
         $this->middleware('guest')->except('logout');
     }
-
-    protected function authenticated(Request $request, $user)
-    {
-        \Log::info('Login authenticated method called for user: ' . $user->email);
-        
-        $user->update(['last_login_at' => now()]);
-        
-        \Log::info('Last login updated to: ' . $user->last_login_at);
-    }
 }

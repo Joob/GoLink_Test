@@ -6,7 +6,6 @@ use App\Users\DTO\CreateUserData;
 use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
 use App\Users\Resources\UserResource;
-use App\Users\Resources\UsersCollection;
 use App\Users\Actions\CreateNewUserAction;
 use Domain\Admin\Requests\CreateUserByAdmin;
 use VueFileManager\Subscription\Domain\Plans\Exceptions\MeteredBillingPlanDoesntExist;
@@ -15,18 +14,17 @@ class UserController extends Controller
 {
     public function __construct(
         protected CreateNewUserAction $createNewUser,
-    ) {
-    }
+    ) {}
 
     /**
      * Get all users
      */
-    public function index(): UsersCollection
+    public function index()
     {
         $users = User::sortable(['created_at', 'DESC'])
             ->paginate(15);
 
-        return new UsersCollection($users);
+        return UserResource::collection($users);
     }
 
     /**

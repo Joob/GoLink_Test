@@ -78,7 +78,7 @@
                         </td>
                         <td class="px-3 md:px-1">
                             <span class="text-sm font-bold">
-                                {{ row.data.attributes.last_login_at || '-' }}
+                                {{ row.data.attributes.updated_at || '-' }}
                             </span>
                         </td>
                         <td class="pl-3 text-right md:pl-1">
@@ -170,7 +170,7 @@
                         </td>
                         <td class="px-3 md:px-1">
                             <span class="text-sm font-bold">
-                                {{ row.data.attributes.last_login_at || '-' }}
+                                {{ row.data.attributes.updated_at || '-' }}
                             </span>
                         </td>
                         <td class="pl-3 text-right md:pl-1">
@@ -251,7 +251,7 @@
                         </td>
                         <td class="px-3 md:px-1">
                             <span class="text-sm font-bold">
-                                {{ row.data.attributes.last_login_at || '-' }}
+                                {{ row.data.attributes.updated_at || '-' }}
                             </span>
                         </td>
                         <td class="pl-3 text-right md:pl-1">
@@ -334,11 +334,13 @@ export default {
                     },
                     {
                         label: this.$t('storage_used'),
-                        sortable: false,
+                        field: 'used_capacity',
+                        sortable: true,
                     },
                     {
                         label: this.$t('billing_est.'),
-                        sortable: false,
+                        field: 'billing_estimate',
+                        sortable: true,
                     },
                     {
                         label: this.$t('created_at'),
@@ -347,7 +349,7 @@ export default {
                     },
                     {
                         label: this.$t('last_login'),
-                        field: 'last_login_at',
+                        field: 'updated_at',
                         sortable: true,
                     },
                     {
@@ -368,20 +370,23 @@ export default {
                     },
                     {
                         label: this.$t('Email Verified'),
-                        field: 'settings.email_verified',
+                        field: 'email_verified_at',
                         sortable: true
                     },
                     {
                         label: this.$t('account'),
-                        sortable: false,
+                        field: 'subscription_type',
+                        sortable: true,
                     },
                     {
                         label: this.$t('storage_used'),
-                        sortable: false,
+                        field: 'used_capacity',
+                        sortable: true,
                     },
                     {
                         label: this.$t('max_storage'),
-                        sortable: false,
+                        field: 'storage_capacity',
+                        sortable: true,
                         hidden: !this.config.storageLimit,
                     },
                     {
@@ -391,7 +396,7 @@ export default {
                     },
                     {
                         label: this.$t('last_login'),
-                        field: 'last_login_at',
+                        field: 'updated_at',
                         sortable: true,
                     },
                     {
@@ -412,11 +417,13 @@ export default {
                     },
                     {
                         label: this.$t('storage_used'),
-                        sortable: false,
+                        field: 'used_capacity',
+                        sortable: true,
                     },
                     {
                         label: this.$t('max_storage'),
-                        sortable: false,
+                        field: 'storage_capacity',
+                        sortable: true,
                         hidden: !this.config.storageLimit,
                     },
                     {
@@ -426,7 +433,7 @@ export default {
                     },
                     {
                         label: this.$t('last_login'),
-                        field: 'last_login_at',
+                        field: 'updated_at',
                         sortable: true,
                     },
                     {

@@ -7,7 +7,6 @@
         class="mt-6 overflow-x-auto"
     >
         <template slot-scope="{ row }">
-            <!-- Conteúdo das linhas permanece o mesmo -->
             <!--Not a subscription-->
             <tr
                 v-if="config.subscriptionType === 'none'"
@@ -293,13 +292,11 @@ export default {
                     },
                     {
                         label: this.$t('storage_used'),
-                        field: 'used_capacity',
-                        sortable: true,
+                        sortable: false,
                     },
                     {
                         label: this.$t('billing_est.'),
-                        field: 'billing_estimate',
-                        sortable: true,
+                        sortable: false,
                     },
                     {
                         label: this.$t('created_at'),
@@ -329,23 +326,20 @@ export default {
                     },
                     {
                         label: this.$t('Email Verified'),
-                        field: 'email_verified_at',
+                        field: 'settings.email_verified',
                         sortable: true
                     },
                     {
                         label: this.$t('account'),
-                        field: 'subscription_type',
-                        sortable: true,
+                        sortable: false,
                     },
                     {
                         label: this.$t('storage_used'),
-                        field: 'used_capacity',
-                        sortable: true,
+                        sortable: false,
                     },
                     {
                         label: this.$t('max_storage'),
-                        field: 'storage_capacity',
-                        sortable: true,
+                        sortable: false,
                         hidden: !this.config.storageLimit,
                     },
                     {
@@ -356,7 +350,7 @@ export default {
                     {
                         label: this.$t('last_login'),
                         field: 'updated_at',
-                        sortable: true,
+                        sortable: false,
                     },
                     {
                         label: this.$t('action'),
@@ -376,13 +370,11 @@ export default {
                     },
                     {
                         label: this.$t('storage_used'),
-                        field: 'used_capacity',
-                        sortable: true,
+                        sortable: false,
                     },
                     {
                         label: this.$t('max_storage'),
-                        field: 'storage_capacity',
-                        sortable: true,
+                        sortable: false,
                         hidden: !this.config.storageLimit,
                     },
                     {
@@ -393,7 +385,7 @@ export default {
                     {
                         label: this.$t('last_login'),
                         field: 'updated_at',
-                        sortable: true,
+                        sortable: false,
                     },
                     {
                         label: this.$t('action'),

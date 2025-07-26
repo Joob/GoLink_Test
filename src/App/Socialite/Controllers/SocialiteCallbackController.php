@@ -45,6 +45,8 @@ class SocialiteCallbackController extends Controller
             // Update last login timestamp
             $existingUser->update(['last_login_at' => now()]);
             
+            \Log::info('OAuth login: Last login updated for existing user: ' . $existingUser->email);
+            
             $this->guard->login($existingUser);
 
             return redirect()->to('/platform/files');
@@ -87,6 +89,8 @@ class SocialiteCallbackController extends Controller
 
         // Set last login timestamp for the new user
         $newUser->update(['last_login_at' => now()]);
+        
+        \Log::info('OAuth login: Last login set for new user: ' . $newUser->email);
 
         // Login user
         $this->guard->login($newUser);

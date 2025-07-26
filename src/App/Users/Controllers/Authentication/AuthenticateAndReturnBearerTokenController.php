@@ -27,6 +27,8 @@ class AuthenticateAndReturnBearerTokenController extends Controller
 
         // Update last login timestamp
         $user->update(['last_login_at' => now()]);
+        
+        \Log::info('API login: Last login updated for user: ' . $user->email);
 
         // Create access token
         $token = $user->createToken('login');

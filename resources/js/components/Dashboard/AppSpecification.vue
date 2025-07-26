@@ -17,7 +17,7 @@
 
         <!--App Info-->
         <div class="mt-4 flex items-center lg:mt-0">
-            <a
+            <!--<a
                 href="https://gist.github.com/MakingCG/9c07f8af392081ae5d5290d920a79b5d"
                 target="_blank"
                 class="mr-4 inline-block"
@@ -42,7 +42,7 @@
                 <ColorLabel color="purple">
                     {{ config.subscriptionType }}
                 </ColorLabel>
-            </b>
+            </b>-->
             <a
                 href="https://golink.co"
                 target="_blank"

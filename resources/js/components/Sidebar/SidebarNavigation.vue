@@ -87,7 +87,7 @@
             <div class="mt-6 block">
                 <div :title="$t('version')" class="inline-block rounded-xl p-3 hover:bg-light-300 dark:hover:bg-4x-dark-foreground">
                     <b class="text-theme block text-xs font-bold leading-3">
-                    {{ $t('v2.3.66') }}
+                    {{ $t('v2.45.2') }}
                     </b>
                 </div>
             </div>

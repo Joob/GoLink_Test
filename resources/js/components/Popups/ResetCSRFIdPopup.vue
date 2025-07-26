@@ -1,9 +1,9 @@
 <template>
-    <PopupWrapper name="delete-all-sessions-id">
+    <PopupWrapper name="reset-csrf">
         <PopupHeader :title="$t('delete_all_sessions')" icon="key" />
 
         <PopupContent>
-            <ValidationObserver @submit.prevent="deleteAllSessionsId" ref="passwordForm" tag="form">
+            <ValidationObserver @submit.prevent="ResetCSRFID" ref="passwordForm" tag="form">
                 <ValidationProvider tag="div" mode="passive" rules="required" v-slot="{ errors }">
                     <AppInputText :title="$t('enter_password_delete_all_sessions')" :error="passwordError || errors[0]">
                         <input
@@ -25,7 +25,7 @@
             </ButtonBase>
             <ButtonBase
                 class="w-full danger"
-                @click.native="deleteAllSessionsId"
+                @click.native="ResetCSRFID"
                 button-style="theme"
                 :loading="isLoading"
                 :disabled="isLoading"
@@ -51,7 +51,7 @@ import { mapGetters } from 'vuex'
 import axios from 'axios'
 
 export default {
-    name: 'DeleteAllSessionsIdPopup',
+    name: 'ResetCSRFIdPopup',
     components: {
         ValidationProvider,
         ValidationObserver,
@@ -76,38 +76,79 @@ export default {
         }
     },
     methods: {
-        async deleteAllSessionsId() {
-            // Clear previous errors
-            this.passwordError = undefined;
+        async ResetCSRFID() {
+            // Validar o formulário primeiro
+            const isValid = await this.$refs.passwordForm.validate();
+            if (!isValid) {
+                this.isLoading = false;
+                return;
+            }
 
+            this.passwordError = undefined;
             this.isLoading = true;
 
-            axios.post('/api/logoutAllSessions', { password: this.password })
-                .then(() => {
+            // Armazenar a senha temporariamente
+            const currentPassword = this.password;
+
+            axios.post('/api/ResetCSRF', { password: this.password })
+                .then((response) => {                    
+                    // Limpar a senha imediatamente
+                    this.password = '';
+                    
+                    // Emitir eventos
+                    events.$emit('popup:close', 'reset-csrf');
+                    
+                    events.$emit('toaster', {
+                        type: 'success',
+                        message: this.$t('csrf_reset_success'),
+                    });
+                    
                     events.$emit('password:confirmed', this.args);
-                    window.location.reload(); // Refresh the page
+
+                    // Resetar estado de carregamento
+                    this.isLoading = false;
                 })
-                .catch((error) => {
-                    if (error.response && (error.response.status === 422 || error.response.status === 403)) {
-                        this.passwordError = this.$t('validation_errors.incorrect_password');
-                        // Set isLoading to false to enable the button again
-                        this.isLoading = false;
+                .catch((error) => {                    
+                    // Tratamento de erro mais robusto
+                    if (error.response) {
+                        switch (error.response.status) {
+                            case 422:
+                            case 403:
+                                this.passwordError = this.$t('validation_errors.incorrect_password');
+                                events.$emit('toaster', {
+                                    type: 'error',
+                                    message: this.$t('csrf_reset_failed'),
+                                });
+                                break;
+                            default:
+                                events.$emit('toaster', {
+                                    type: 'error',
+                                    message: this.$t('general_error'),
+                                });
+                        }
+                    } else {
+                        events.$emit('toaster', {
+                            type: 'error',
+                            message: this.$t('network_error'),
+                        });
                     }
-                })
-                .finally(() => {
-                    if (this.isLoading) {
-                        // Set isLoading to false to enable the button again
-                        this.isLoading = false;
-                    }
-                    this.password = undefined;
+                    
+                    // Sempre resetar o estado de carregamento em caso de erro
+                    this.isLoading = false;
+                    
+                    // Limpar a senha em caso de erro
+                    this.password = '';
                 });
         },
     },
+
     created() {
         // Show popup
         events.$on('popup:open', (args) => {
-            if (args.name !== 'delete-all-sessions-id') return;
+            if (args.name !== 'reset-csrf') return;
 
+            this.password = '';
+            this.passwordError = undefined;
             this.args = args;
         });
     },

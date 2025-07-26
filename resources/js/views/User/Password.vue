@@ -86,19 +86,12 @@
                 {{ $t('access_login') }}
             </FormLabel>
 
-            <!--<ButtonBase
-                button-style="theme"
-                class="button-base w-full danger sm:w-auto"
-            >
-                {{ $t('auto_logout_session') }}
-            </ButtonBase>-->
-
             <InfoBox>
                 <p>{{ $t('clean_all_sessions') }}</p>
             </InfoBox>
 
             <ButtonBase
-                @click.native="openConfirmDeleteAllSessionsIdPopup"
+                @click.native="openConfirmResetCSRF"
                 type="submit"
                 button-style="theme"
                 class="button-base w-full danger sm:w-auto"
@@ -306,14 +299,11 @@ export default {
         openCreateTokenPopup() {
             events.$emit('popup:open', { name: 'create-personal-token' })
         },
-        /*openConfirmDeleteAllSessionsIdPopup() {
-            events.$emit('popup:open', { name: 'delete-all-sessions-id' })
-        },*/
-        openConfirmDeleteAllSessionsIdPopup() {
+        openConfirmResetCSRF() {
             events.$emit('popup:open', {
-                name: 'delete-all-sessions-id',
+                name: 'reset-csrf',
                 options: {
-                    action: 'logoutAllSessions',
+                    action: 'ResetCSRF',
                 },
             })
         },

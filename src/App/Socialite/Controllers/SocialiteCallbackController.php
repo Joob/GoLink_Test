@@ -40,9 +40,12 @@ class SocialiteCallbackController extends Controller
 
         // Login user when exists
         if ($user->exists()) {
-            $this->guard->login(
-                $user->first()
-            );
+            $existingUser = $user->first();
+            
+            // Update last login timestamp
+            $existingUser->update(['last_login_at' => now()]);
+            
+            $this->guard->login($existingUser);
 
             return redirect()->to('/platform/files');
         }
@@ -81,6 +84,9 @@ class SocialiteCallbackController extends Controller
 
         // Create User
         $newUser = ($this->createNewUser)($data);
+
+        // Set last login timestamp for the new user
+        $newUser->update(['last_login_at' => now()]);
 
         // Login user
         $this->guard->login($newUser);

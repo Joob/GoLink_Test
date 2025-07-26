@@ -100,6 +100,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'name',
         'role',
         'created_at',
+        'last_login_at',
     ];
 
     public $incrementing = false;

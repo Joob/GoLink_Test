@@ -25,6 +25,9 @@ class AuthenticateAndReturnBearerTokenController extends Controller
             throw ValidationException::withMessages(['email' => ['The provided credentials are incorrect.'], ]);
         }
 
+        // Update last login timestamp
+        $user->update(['last_login_at' => now()]);
+
         // Create access token
         $token = $user->createToken('login');
 

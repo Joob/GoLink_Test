@@ -76,6 +76,11 @@
                                 {{ row.data.attributes.created_at }}
                             </span>
                         </td>
+                        <td class="px-3 md:px-1">
+                            <span class="text-sm font-bold">
+                                {{ row.data.attributes.last_login_at || '-' }}
+                            </span>
+                        </td>
                         <td class="pl-3 text-right md:pl-1">
                             <div class="flex w-full justify-end space-x-2">
                                 <router-link
@@ -163,6 +168,11 @@
                                 {{ row.data.attributes.created_at }}
                             </span>
                         </td>
+                        <td class="px-3 md:px-1">
+                            <span class="text-sm font-bold">
+                                {{ row.data.attributes.last_login_at || '-' }}
+                            </span>
+                        </td>
                         <td class="pl-3 text-right md:pl-1">
                             <div class="flex w-full justify-end space-x-2">
                                 <router-link
@@ -237,6 +247,11 @@
                         <td class="px-3 md:px-1">
                             <span class="text-sm font-bold">
                                 {{ row.data.attributes.created_at }}
+                            </span>
+                        </td>
+                        <td class="px-3 md:px-1">
+                            <span class="text-sm font-bold">
+                                {{ row.data.attributes.last_login_at || '-' }}
                             </span>
                         </td>
                         <td class="pl-3 text-right md:pl-1">
@@ -331,6 +346,11 @@ export default {
                         sortable: true,
                     },
                     {
+                        label: this.$t('last_login'),
+                        field: 'last_login_at',
+                        sortable: true,
+                    },
+                    {
                         label: this.$t('action'),
                         sortable: false,
                     },
@@ -370,6 +390,11 @@ export default {
                         sortable: true,
                     },
                     {
+                        label: this.$t('last_login'),
+                        field: 'last_login_at',
+                        sortable: true,
+                    },
+                    {
                         label: this.$t('action'),
                         sortable: false,
                     },
@@ -397,6 +422,11 @@ export default {
                     {
                         label: this.$t('created_at'),
                         field: 'created_at',
+                        sortable: true,
+                    },
+                    {
+                        label: this.$t('last_login'),
+                        field: 'last_login_at',
                         sortable: true,
                     },
                     {

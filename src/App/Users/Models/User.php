@@ -62,6 +62,7 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $fillable = [
         'email',
         'password',
+        'last_login_at',
         'oauth_provider',
         'otp_code',
         'otp_expiration',
@@ -86,6 +87,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'id'                => 'string',
         'email_verified_at' => 'datetime',
         'otp_expiration'    => 'datetime',
+        'last_login_at'     => 'datetime',
     ];
 
     protected $appends = [

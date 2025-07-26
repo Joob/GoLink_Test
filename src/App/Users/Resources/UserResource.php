@@ -43,6 +43,7 @@ class UserResource extends JsonResource
                     'created_at'                => format_date($this->created_at, 'd. M. Y'),
                     'updated_at'                => format_date($this->updated_at, 'd. M. Y'),
                     'email_verified_at'         => $this->email_verified_at,
+                    'last_login_at'             => $this->last_login_at ? $this->last_login_at->format('d M Y H:i') : null,
                 ],
                 'relationships' => [
                     'readNotifications'   => new NotificationCollection($this->readNotifications),

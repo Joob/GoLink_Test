@@ -23,6 +23,9 @@
         <!--Reset CSRF ID-->
         <ResetCSRFIdPopup v-if="!isLoading && user" />
 
+        <!--Delete Permanently Account-->
+        <DeleteAccountConfirmation v-if="!isLoading && user" />
+
         <!--Payments Popup-->
         <SubscribeAccountPopup v-if="!isLoading && user && config.subscriptionType === 'fixed'" />
         <ChangeSubscriptionPopup v-if="!isLoading && user && config.subscriptionType === 'fixed'" />
@@ -84,6 +87,7 @@ import Spotlight from '../components/Spotlight/Spotlight'
 import TwoFactorRecoveryCodesPopup from '../components/TwoFactorSetup/TwoFactorRecoveryCodesPopup'
 import CreatePersonalTokenPopup from '../components/Popups/CreatePersonalTokenPopup'
 import ResetCSRFIdPopup from '../components/Popups/ResetCSRFIdPopup'
+import DeleteAccountConfirmation from '../components/Popups/DeleteAccountConfirmation'
 import TwoFactorQrSetupPopup from '../components/TwoFactorSetup/TwoFactorQrSetupPopup'
 import AvatarInput from '../components/Inputs/AvatarInput'
 import ColorLabel from '../components/UI/Labels/ColorLabel'
@@ -118,6 +122,7 @@ export default {
         TwoFactorRecoveryCodesPopup,
         CreatePersonalTokenPopup,
         ResetCSRFIdPopup,
+        DeleteAccountConfirmation,
         TwoFactorQrSetupPopup,
         AvatarInput,
         ColorLabel,

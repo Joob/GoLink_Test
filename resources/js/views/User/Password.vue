@@ -158,6 +158,26 @@
                 {{ $t('profile.store_pass') }}
             </ButtonBase>
         </ValidationObserver>
+
+        <!--Delete Account-->
+        <div class="card shadow-card">
+            <FormLabel icon="trash-2">
+                Apagar Conta
+            </FormLabel>
+
+            <InfoBox>
+                <p>Apagar dados da conta, respectivos ficheiros, tudo o que tenha guardado na conta, será apagado permanentemente.</p>
+            </InfoBox>
+
+            <ButtonBase
+                @click.native="openDeleteAccountPopup"
+                type="submit"
+                button-style="danger"
+                class="button-base w-full danger sm:w-auto"
+            >
+                Apagar conta
+            </ButtonBase>
+        </div>
     </div>
 </template>
 
@@ -305,6 +325,11 @@ export default {
                 options: {
                     action: 'ResetCSRF',
                 },
+            })
+        },
+        openDeleteAccountPopup() {
+            events.$emit('popup:open', { 
+                name: 'delete-account-confirmation'
             })
         },
         formatDate(date) {

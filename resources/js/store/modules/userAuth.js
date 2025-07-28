@@ -5,6 +5,7 @@ import Vue from 'vue'
 const defaultState = {
     permission: 'master', // master | editor | visitor
     user: undefined,
+    notifications: [],
 }
 
 const actions = {
@@ -127,7 +128,7 @@ const actions = {
                 commit('FLUSH_NOTIFICATIONS')
             })
             .catch(() => Vue.prototype.$isSomethingWrong())
-    },
+    }
 }
 
 const mutations = {
@@ -198,6 +199,23 @@ const mutations = {
             })
         }
     },
+    REMOVE_SINGLE_NOTIFICATION(state, notificationId) {
+        // Remove das notificações não lidas
+        const unreadIndex = state.user.data.relationships.unreadNotifications.data.findIndex(
+            n => n.data.id === notificationId
+        );
+        if (unreadIndex > -1) {
+            state.user.data.relationships.unreadNotifications.data.splice(unreadIndex, 1);
+        }
+        
+        // Remove das notificações lidas
+        const readIndex = state.user.data.relationships.readNotifications.data.findIndex(
+            n => n.data.id === notificationId
+        );
+        if (readIndex > -1) {
+            state.user.data.relationships.readNotifications.data.splice(readIndex, 1);
+        }
+    }
 }
 
 const getters = {

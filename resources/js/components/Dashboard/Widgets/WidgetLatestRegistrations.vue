@@ -350,7 +350,7 @@ export default {
                     {
                         label: this.$t('last_login'),
                         field: 'updated_at',
-                        sortable: false,
+                        sortable: true,
                     },
                     {
                         label: this.$t('action'),
@@ -385,7 +385,7 @@ export default {
                     {
                         label: this.$t('last_login'),
                         field: 'updated_at',
-                        sortable: false,
+                        sortable: true,
                     },
                     {
                         label: this.$t('action'),

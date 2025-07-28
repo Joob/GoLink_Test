@@ -24,7 +24,7 @@ class UserController extends Controller
         $users = User::sortable(['created_at', 'DESC'])
             ->paginate(15);
 
-        return UserResource::collection($users);
+        return new UsersCollection($users);
     }
 
     /**

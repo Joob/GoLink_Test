@@ -38,6 +38,9 @@ use Domain\Notifications\Controllers\MarkUserNotificationsAsReadController;
 use App\Users\Controllers\Authentication\DestroyActiveBearerTokenController;
 use App\Users\Controllers\Authentication\DestroyLogoutController;
 use App\Users\Controllers\Authentication\ResetCSRFIDController;
+use App\Users\Controllers\Authentication\NotificationController;
+use App\Users\Controllers\Account\MoveToTrashController;
+use App\Users\Controllers\Authentication\DeleteAccountController;
 use App\Users\Controllers\Authentication\AuthenticateAndReturnBearerTokenController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -49,6 +52,14 @@ use App\Http\Controllers\CounterController;
 // Ping Pong
 Route::get('/ping', PingAPIController::class);
 Route::get('/config', GetConfigController::class);
+
+// Delete Notification
+Route::post('/notifications/{id}/delete', [NotificationController::class, 'destroy']) 
+    ->middleware('auth:sanctum');
+
+// Delete Account/Files/Folders
+Route::post('/trash/move', [MoveToTrashController::class, 'move']);
+Route::delete('/user/account', [DeleteAccountController::class, 'destroy']);
 
 // Pages
 Route::get('/page/{page}', ShowPageController::class);
@@ -84,7 +95,6 @@ Route::group(['prefix' => 'password'], function () {
 
 // User master Routes
 Route::group(['middleware' => ['auth:sanctum']], function () {
-    // Browse
 
     //Get the Limitation info of user
     Route::post('/user/info', function (Request $request) {

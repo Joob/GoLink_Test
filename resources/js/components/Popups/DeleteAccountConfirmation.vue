@@ -1,29 +1,32 @@
 <template>
     <PopupWrapper name="delete-account-confirmation">
-        <PopupHeader :title="$t('delete_permanently_account')" icon="user" />
+        <PopupHeader
+            :title="$t('delete_permanently_account')"
+            icon="user-plus"
+        />
 
         <PopupContent>
-            <ValidationObserver 
-                @submit.prevent="deleteAccount" 
-                ref="deleteForm" 
-                v-slot="{ invalid }" 
+            <ValidationObserver
+                v-slot="{ invalid }"
+                ref="deleteForm"
+                @submit.prevent="deleteAccount"
                 tag="form"
             >
                 <div class="mb-6">
                     <p class="text-sm text-gray-700 dark:text-gray-300">
-                        Para apagar a conta permanentemente + dados + ficheiros escreva "<strong>{{ username }}</strong>"
+                        Para apagar a conta permanentemente, escreva <strong>{{ username }}</strong>
                     </p>
                 </div>
 
-                <ValidationProvider 
-                    tag="div" 
-                    mode="passive" 
-                    name="Username Confirmation" 
-                    :rules="`required|username_match:${username}`" 
+                <ValidationProvider
+                    tag="div"
+                    mode="passive"
+                    name="Username Confirmation"
+                    :rules="`required|username_match:${username}`"
                     v-slot="{ errors }"
                 >
-                    <AppInputText 
-                        :title="'Confirme o nome de utilizador'" 
+                    <AppInputText
+                        :title="'Confirme o nome de utilizador apagar permanentemente'"
                         :error="errors[0]"
                     >
                         <input
@@ -33,26 +36,28 @@
                             class="focus-border-theme input-dark"
                             :class="{ '!border-rose-600': errors[0] }"
                             autocomplete="off"
+                            @input="onInput"
                         />
                     </AppInputText>
                 </ValidationProvider>
 
                 <PopupActions>
-                    <ButtonBase 
-                        class="w-full" 
-                        @click.native="$closePopup()" 
+                    <ButtonBase
+                        class="w-full"
+                        type="button"
                         button-style="secondary"
+                        @click.native="onCancel"
                     >
                         Cancelar
                     </ButtonBase>
-                    
+                    <!-- Garantir :disabled e também um fallback de style -->
                     <ButtonBase
                         class="w-full danger"
                         button-style="theme"
-                        @click.native="deleteAccount"
                         type="submit"
                         :loading="isLoading"
-                        :disabled="invalid || usernameConfirmation !== username"
+                        :disabled="isSubmitButtonDisabled"
+                        :style="{ opacity: isSubmitButtonDisabled ? 0.6 : 1, pointerEvents: isSubmitButtonDisabled ? 'none' : 'auto' }"
                     >
                         Apagar Permanentemente
                     </ButtonBase>
@@ -71,14 +76,11 @@ import PopupContent from './Components/PopupContent'
 import AppInputText from '../Forms/Layouts/AppInputText'
 import ButtonBase from '../UI/Buttons/ButtonBase'
 import { mapGetters } from 'vuex'
-import { events } from '../../bus'
-import axios from 'axios'
 
-// Custom validation rule
 extend('username_match', {
     params: ['target'],
     validate(value, { target }) {
-        return value === target
+        return value.trim().toLowerCase() === target.trim().toLowerCase()
     },
     message: 'O nome de utilizador não coincide'
 })
@@ -98,10 +100,17 @@ export default {
     computed: {
         ...mapGetters(['user']),
         username() {
-            return this.user?.data?.attributes?.name || 
-                   this.user?.data?.attributes?.username || 
-                   this.user?.data?.attributes?.email?.split('@')[0] || 
-                   'username'
+            const user = this.user?.data?.attributes;
+            const name = user?.name || user?.username || user?.email?.split('@')[0] || 'username';
+            return name;
+        },
+        isSubmitButtonDisabled() {
+            // Só habilita se o valor for exatamente igual ao username (case-insensitive, sem espaços extras)
+            return (
+                this.isLoading ||
+                !this.usernameConfirmation.trim() ||
+                this.usernameConfirmation.trim().toLowerCase() !== this.username.trim().toLowerCase()
+            );
         }
     },
     data() {
@@ -112,23 +121,31 @@ export default {
     },
     methods: {
         async deleteAccount() {
-            this.isLoading = true
+            this.isLoading = true;
             try {
                 await this.$store.dispatch('deleteUserAccount', {
-                    usernameConfirmation: this.usernameConfirmation
-                })
-                this.isLoading = false
-                this.$closePopup()
-                // Podes mostrar um toast/sucesso aqui
+                    username_confirmation: this.usernameConfirmation,
+                });
+                this.isLoading = false;
+                this.usernameConfirmation = '';
+                this.$closePopup();
+                this.$toast?.success?.('Conta apagada com sucesso.');
             } catch (error) {
-                this.isLoading = false
-                // Mostra erro ao utilizador
-                // Por exemplo: this.$toast.error(error.response?.data?.message || 'Erro ao apagar conta')
+                this.isLoading = false;
+                this.$toast?.error?.(error.response?.data?.message || 'Erro ao apagar conta');
             }
+        },
+        onCancel() {
+            this.usernameConfirmation = '';
+            this.$closePopup();
+        },
+        onInput() {
+            // Força reatividade para debug (podes remover depois)
+            console.log('[DeleteAccount] Valor digitado:', this.usernameConfirmation, '| Botão disabled:', this.isSubmitButtonDisabled);
         }
     },
     mounted() {
-        this.usernameConfirmation = ''
+        this.usernameConfirmation = '';
     }
 }
 </script>

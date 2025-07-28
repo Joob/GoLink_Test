@@ -58,8 +58,10 @@ Route::post('/notifications/{id}/delete', [NotificationController::class, 'destr
     ->middleware('auth:sanctum');
 
 // Delete Account/Files/Folders
-Route::post('/trash/move', [MoveToTrashController::class, 'move']);
-Route::delete('/user/account', [DeleteAccountController::class, 'destroy']);
+Route::post('/trash/move', [MoveToTrashController::class, 'move'])
+    >middleware('auth:sanctum');
+Route::delete('/user/account', [DeleteAccountController::class, 'destroy'])
+    >middleware('auth:sanctum');
 
 // Pages
 Route::get('/page/{page}', ShowPageController::class);

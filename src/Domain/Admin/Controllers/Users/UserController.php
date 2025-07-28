@@ -67,4 +67,16 @@ class UserController extends Controller
 
         return response()->json(new UserResource($user), 201);
     }
+    
+public function destroy(Request $request)
+    {
+        \Log::info('User:', ['user' => auth()->user()]);
+        if (!$request->has('username_confirmation') || $request->input('username_confirmation') !== auth()->user()->name) {
+            return response()->json(['message' => 'Confirmação incorreta'], 422);
+        }
+        // Apaga a conta...
+        $user = auth()->user();
+        $user->delete();
+        return response()->json(['message' => 'Conta apagada com sucesso']);
+    }
 }

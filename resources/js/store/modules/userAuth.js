@@ -128,6 +128,28 @@ const actions = {
                 commit('FLUSH_NOTIFICATIONS')
             })
             .catch(() => Vue.prototype.$isSomethingWrong())
+    },
+    async deleteUserAccount({ commit, state, getters }, payload) {
+        console.log('[Store] deleteUserAccount chamado!', payload);
+
+        // Exemplo: supondo que você armazene o token em state.token ou getters.token
+        const token = state.token || getters.token || localStorage.getItem('token');
+        try {
+            const resp = await window.axios.delete('/api/user/account', {
+                data: payload,
+                withCredentials: true,
+                headers: {
+                    Authorization: 'Bearer ' + token
+                }
+            });
+            console.log('[Store] Conta apagada com sucesso', resp);
+            commit('DESTROY_DATA');
+            commit('SET_AUTHORIZED', false);
+            router.push({ name: 'SignIn' });
+        } catch (e) {
+            console.error('[Store] Erro ao apagar conta:', e);
+            throw e;
+        }
     }
 }
 

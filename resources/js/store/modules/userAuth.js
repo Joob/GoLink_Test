@@ -132,22 +132,64 @@ const actions = {
     async deleteUserAccount({ commit, state, getters }, payload) {
         console.log('[Store] deleteUserAccount chamado!', payload);
 
-        // Exemplo: supondo que você armazene o token em state.token ou getters.token
-        const token = state.token || getters.token || localStorage.getItem('token');
+        /**
+         * Token retrieval logic with fallbacks:
+         * 1. Try to get token from Vuex state (if implemented in future)
+         * 2. Try to get token from Vuex getters (if implemented in future)
+         * 3. Try to get token from access_token cookie (set by OTP system)
+         * 4. Fallback to localStorage as requested
+         */
+        const getCookieValue = (cookieName) => {
+            const matches = document.cookie.match(new RegExp('(?:^|; )' + cookieName + '=([^;]*)'));
+            return matches ? decodeURIComponent(matches[1]) : null;
+        };
+
+        // Retrieve token with proper fallback mechanism
+        const token = state.token || 
+                     getters.token || 
+                     getCookieValue('access_token') || 
+                     localStorage.getItem('token') ||
+                     localStorage.getItem('access_token');
+
+        // Verify token exists before making request
+        if (!token) {
+            console.error('[Store] No authentication token found');
+            throw new Error('Token de autenticação não encontrado. Por favor, faça login novamente.');
+        }
+
         try {
             const resp = await window.axios.delete('/api/user/account', {
                 data: payload,
                 withCredentials: true,
                 headers: {
-                    Authorization: 'Bearer ' + token
+                    'Authorization': 'Bearer ' + token,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
                 }
             });
             console.log('[Store] Conta apagada com sucesso', resp);
+            
+            // Clear authentication state and redirect
             commit('DESTROY_DATA');
             commit('SET_AUTHORIZED', false);
+            
+            // Clear any stored tokens
+            localStorage.removeItem('token');
+            localStorage.removeItem('access_token');
+            
             router.push({ name: 'SignIn' });
         } catch (e) {
             console.error('[Store] Erro ao apagar conta:', e);
+            
+            // Handle specific authentication errors
+            if (e.response && e.response.status === 401) {
+                throw new Error('Sessão expirada. Por favor, faça login novamente.');
+            } else if (e.response && e.response.status === 422) {
+                throw new Error(e.response.data.message || 'Dados de confirmação inválidos.');
+            } else if (e.response && e.response.status === 500) {
+                throw new Error('Erro interno do servidor. Por favor, tente novamente mais tarde.');
+            }
+            
             throw e;
         }
     }

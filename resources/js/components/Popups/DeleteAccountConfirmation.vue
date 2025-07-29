@@ -101,7 +101,9 @@ export default {
         ...mapGetters(['user']),
         username() {
             const user = this.user?.data?.attributes;
-            const name = user?.name || user?.username || user?.email?.split('@')[0] || 'username';
+            const settings = this.user?.data?.relationships?.settings?.data?.attributes;
+            // Use the name from settings (first_name + last_name) or fallback to email
+            const name = settings?.name || user?.email?.split('@')[0] || user?.email || 'username';
             return name;
         },
         isSubmitButtonDisabled() {

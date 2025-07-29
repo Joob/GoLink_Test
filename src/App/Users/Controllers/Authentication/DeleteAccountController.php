@@ -21,8 +21,9 @@ class DeleteAccountController extends Controller
 
         $user = Auth::user();
 
-        // 1. Verificar nome
-        if ($request->username_confirmation !== $user->name) {
+        // 1. Verificar nome - usar o nome das settings ou email como fallback
+        $userName = $user->settings->name ?? $user->email;
+        if ($request->username_confirmation !== $userName) {
             return response()->json([
                 'message' => 'Nome de utilizador não coincide'
             ], 422);

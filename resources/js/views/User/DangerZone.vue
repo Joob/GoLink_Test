@@ -3,13 +3,13 @@
         <Spinner v-if="isLoading" />
         
         <!--Delete Account-->
-        <div class="card shadow-card danger-zone-card">
+        <div class="card shadow-card">
             <FormLabel icon="trash-2" class="danger-zone-header">
                 Apagar Conta
             </FormLabel>
 
             <InfoBox class="danger-zone-info">
-                <p>Apagar dados da conta, respectivos ficheiros, tudo o que tenha guardado na conta, será apagado permanentemente.</p>
+                <p class="danger-zone-text">Apagar dados da conta, respectivos ficheiros, tudo o que tenha guardado na conta, será apagado permanentemente.</p>
             </InfoBox>
 
             <ButtonBase
@@ -59,17 +59,6 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.danger-zone-card {
-    border: 2px solid #dc2626 !important;
-    background: linear-gradient(135deg, rgba(220, 38, 38, 0.05) 0%, rgba(255, 255, 255, 1) 100%);
-    box-shadow: 0 4px 6px -1px rgba(220, 38, 38, 0.1), 0 2px 4px -1px rgba(220, 38, 38, 0.06) !important;
-    
-    .dark & {
-        background: linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, var(--color-eel) 100%);
-        border-color: #dc2626;
-    }
-}
-
 .danger-zone-header {
     color: #dc2626 !important;
     font-weight: bold;
@@ -87,14 +76,14 @@ export default {
         background-color: rgba(220, 38, 38, 0.1) !important;
         border-color: #dc2626 !important;
     }
+}
+
+.danger-zone-text {
+    color: #7f1d1d !important;
+    font-weight: 500;
     
-    p {
-        color: #7f1d1d !important;
-        font-weight: 500;
-        
-        .dark & {
-            color: #fca5a5 !important;
-        }
+    .dark & {
+        color: #fca5a5 !important;
     }
 }
 

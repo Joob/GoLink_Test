@@ -16,31 +16,28 @@ class DeleteAccountController extends Controller
     public function destroy(Request $request)
     {
         $request->validate([
-            'username_confirmation' => 'required|string'
+            'email_confirmation' => 'required|email'
         ]);
 
         $user = Auth::user();
 
-        // 1. Verificar nome - usar o nome das settings ou email como fallback
-        $userName = $user->settings->name ?? $user->email;
+        // 1. Verificar email - usar o email do usuário
+        $userEmail = $user->email;
         
         // Debug: Log what we're comparing
         \Log::info('Delete Account Debug', [
             'user_id' => $user->id,
-            'expected_username' => $userName,
-            'received_username' => $request->username_confirmation,
-            'settings_name' => $user->settings ? $user->settings->name : null,
-            'settings_first_name' => $user->settings ? $user->settings->first_name : null,
-            'settings_last_name' => $user->settings ? $user->settings->last_name : null,
+            'expected_email' => $userEmail,
+            'received_email' => $request->email_confirmation,
             'user_email' => $user->email
         ]);
         
-        if ($request->username_confirmation !== $userName) {
+        if ($request->email_confirmation !== $userEmail) {
             return response()->json([
-                'message' => 'Nome de utilizador não coincide',
+                'message' => 'Email não coincide',
                 'debug' => [
-                    'expected' => $userName,
-                    'received' => $request->username_confirmation
+                    'expected' => $userEmail,
+                    'received' => $request->email_confirmation
                 ]
             ], 422);
         }

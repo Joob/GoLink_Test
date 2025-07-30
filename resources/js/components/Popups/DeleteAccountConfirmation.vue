@@ -14,25 +14,25 @@
             >
                 <div class="mb-6">
                     <p class="text-sm text-gray-700 dark:text-gray-300">
-                        Para apagar a conta permanentemente, escreva <strong>{{ username }}</strong>
+                        Para apagar a conta permanentemente, escreva <strong>{{ userEmail }}</strong>
                     </p>
                 </div>
 
                 <ValidationProvider
                     tag="div"
                     mode="passive"
-                    name="Username Confirmation"
-                    :rules="`required|username_match:${username}`"
+                    name="Email Confirmation"
+                    :rules="`required|email_match:${userEmail}`"
                     v-slot="{ errors }"
                 >
                     <AppInputText
-                        :title="'Confirme o nome de utilizador apagar permanentemente'"
+                        :title="'Confirme o email para apagar permanentemente'"
                         :error="errors[0]"
                     >
                         <input
-                            v-model="usernameConfirmation"
-                            :placeholder="`Digite ${username}`"
-                            type="text"
+                            v-model="emailConfirmation"
+                            :placeholder="`Digite ${userEmail}`"
+                            type="email"
                             class="focus-border-theme input-dark"
                             :class="{ '!border-rose-600': errors[0] }"
                             autocomplete="off"
@@ -77,12 +77,12 @@ import AppInputText from '../Forms/Layouts/AppInputText'
 import ButtonBase from '../UI/Buttons/ButtonBase'
 import { mapGetters } from 'vuex'
 
-extend('username_match', {
+extend('email_match', {
     params: ['target'],
     validate(value, { target }) {
         return value.trim().toLowerCase() === target.trim().toLowerCase()
     },
-    message: 'O nome de utilizador não coincide'
+    message: 'O email não coincide'
 })
 
 export default {
@@ -99,41 +99,22 @@ export default {
     },
     computed: {
         ...mapGetters(['user']),
-        username() {
+        userEmail() {
             const user = this.user?.data?.attributes;
-            const settings = this.user?.data?.relationships?.settings?.data?.attributes;
-            
-            // Match backend logic: use settings.name (first_name + last_name) or fallback to email
-            let name;
-            if (settings && settings.first_name && settings.last_name) {
-                name = settings.first_name + ' ' + settings.last_name;
-            } else if (settings && settings.name) {
-                name = settings.name;
-            } else {
-                name = user?.email;
-            }
-            
-            // Debug logging
-            console.log('[DeleteAccount] Username debug:', {
-                settings: settings,
-                computed_name: name,
-                fallback_email: user?.email
-            });
-            
-            return name || user?.email || 'username';
+            return user?.email || 'email@example.com';
         },
         isSubmitButtonDisabled() {
-            // Só habilita se o valor for exatamente igual ao username (case-insensitive, sem espaços extras)
+            // Só habilita se o valor for exatamente igual ao email (case-insensitive, sem espaços extras)
             return (
                 this.isLoading ||
-                !this.usernameConfirmation.trim() ||
-                this.usernameConfirmation.trim().toLowerCase() !== this.username.trim().toLowerCase()
+                !this.emailConfirmation.trim() ||
+                this.emailConfirmation.trim().toLowerCase() !== this.userEmail.trim().toLowerCase()
             );
         }
     },
     data() {
         return {
-            usernameConfirmation: '',
+            emailConfirmation: '',
             isLoading: false
         }
     },
@@ -142,10 +123,10 @@ export default {
             this.isLoading = true;
             try {
                 await this.$store.dispatch('deleteUserAccount', {
-                    username_confirmation: this.usernameConfirmation,
+                    email_confirmation: this.emailConfirmation,
                 });
                 this.isLoading = false;
-                this.usernameConfirmation = '';
+                this.emailConfirmation = '';
                 this.$closePopup();
                 this.$toast?.success?.('Conta apagada com sucesso.');
             } catch (error) {
@@ -154,16 +135,16 @@ export default {
             }
         },
         onCancel() {
-            this.usernameConfirmation = '';
+            this.emailConfirmation = '';
             this.$closePopup();
         },
         onInput() {
             // Força reatividade para debug (podes remover depois)
-            console.log('[DeleteAccount] Valor digitado:', this.usernameConfirmation, '| Botão disabled:', this.isSubmitButtonDisabled);
+            console.log('[DeleteAccount] Valor digitado:', this.emailConfirmation, '| Botão disabled:', this.isSubmitButtonDisabled);
         }
     },
     mounted() {
-        this.usernameConfirmation = '';
+        this.emailConfirmation = '';
     }
 }
 </script>

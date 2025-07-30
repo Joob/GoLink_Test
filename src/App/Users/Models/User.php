@@ -27,6 +27,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use phpDocumentor\Reflection\Types\Integer;
 use VueFileManager\Subscription\App\User\Traits\Billable;
+use Domain\Sharing\Models\Share;
+use Domain\Teams\Models\TeamFolderInvitation;
 
 /**
  * @property string id
@@ -424,6 +426,22 @@ class User extends Authenticatable implements MustVerifyEmail
     public function uploadRequest(): HasOne
     {
         return $this->hasOne(UploadRequest::class);
+    }
+
+    /**
+     * Get all user shares
+     */
+    public function shares(): HasMany
+    {
+        return $this->hasMany(Share::class);
+    }
+
+    /**
+     * Get all team invitations for this user
+     */
+    public function teamInvitations(): HasMany
+    {
+        return $this->hasMany(TeamFolderInvitation::class, 'email', 'email');
     }
 
     /**

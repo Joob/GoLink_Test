@@ -10,8 +10,10 @@
                 <router-link
                     class="border-bottom-theme inline-block border-b-2 border-transparent px-4 py-5 text-sm font-bold"
                     :class="{
-                        'text-theme': routeName === page.route,
-                        'text-gray-600 dark:text-gray-100': routeName !== page.route,
+                        'text-theme': routeName === page.route && !page.isDanger,
+                        'text-gray-600 dark:text-gray-100': routeName !== page.route && !page.isDanger,
+                        'text-red-600 bg-red-100 dark:bg-red-900 dark:text-red-400 rounded-t-lg': page.isDanger && routeName !== page.route,
+                        'text-white bg-red-600 rounded-t-lg': page.isDanger && routeName === page.route,
                     }"
                     v-for="(page, i) in pages"
                     :to="{ name: page.route }"

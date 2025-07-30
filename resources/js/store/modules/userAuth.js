@@ -129,26 +129,68 @@ const actions = {
             })
             .catch(() => Vue.prototype.$isSomethingWrong())
     },
-    async deleteUserAccount({ commit, state, getters }, payload) {
+    async deleteUserAccount({ commit, getters }, payload) {
         console.log('[Store] deleteUserAccount chamado!', payload);
 
-        // Exemplo: supondo que você armazene o token em state.token ou getters.token
-        const token = state.token || getters.token || localStorage.getItem('token');
         try {
-            const resp = await window.axios.delete('/api/user/account', {
-                data: payload,
-                withCredentials: true,
-                headers: {
-                    Authorization: 'Bearer ' + token
-                }
+            // Use session-based authentication like other actions in this module
+            // The axios instance will automatically include CSRF token and session cookies
+            const resp = await axios.delete(getters.api + '/user/account', {
+                data: payload
             });
+            
             console.log('[Store] Conta apagada com sucesso', resp);
+            
+            // Clear authentication state and redirect
             commit('DESTROY_DATA');
             commit('SET_AUTHORIZED', false);
+            
             router.push({ name: 'SignIn' });
         } catch (e) {
             console.error('[Store] Erro ao apagar conta:', e);
+            
+            // Handle specific HTTP errors with user-friendly messages
+            if (e.response && e.response.status === 401) {
+                throw new Error('Sessão expirada. Por favor, faça login novamente.');
+            } else if (e.response && e.response.status === 422) {
+                throw new Error(e.response.data.message || 'Dados de confirmação inválidos.');
+            } else if (e.response && e.response.status === 500) {
+                throw new Error('Erro interno do servidor. Por favor, tente novamente mais tarde.');
+            }
+            
             throw e;
+        }
+    },
+    async getDeleteAccountProgress({ getters }) {
+        try {
+            const response = await axios.get(getters.api + '/user/account/progress');
+            
+            // Ensure we return a properly structured object with safe defaults
+            const data = response.data || {};
+            return {
+                percentage: typeof data.percentage === 'number' ? data.percentage : 0,
+                current_step: data.current_step || 'A verificar progresso...',
+                completed: Boolean(data.completed),
+                details: data.details || null
+            };
+        } catch (e) {
+            console.error('[Store] Erro ao obter progresso:', e);
+            
+            // Return proper defaults if error (but still throw error so component can handle auth issues)
+            const defaultProgress = {
+                percentage: 0,
+                current_step: 'Erro ao verificar progresso...',
+                completed: false,
+                details: null
+            };
+            
+            // If it's an auth error, still throw it so the component can handle the deletion completion logic
+            if (e.response && [401, 403].includes(e.response.status)) {
+                throw e;
+            }
+            
+            // For other errors, return defaults
+            return defaultProgress;
         }
     }
 }

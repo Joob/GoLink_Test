@@ -24,7 +24,8 @@ class UserController extends Controller
         $users = User::sortable(['created_at', 'DESC'])
             ->paginate(15);
 
-        return new UsersCollection($users);
+        return UserResource::collection($users);
+        //return new UsersCollection($users);
     }
 
     /**
@@ -68,15 +69,15 @@ class UserController extends Controller
         return response()->json(new UserResource($user), 201);
     }
     
-public function destroy(Request $request)
-    {
-        \Log::info('User:', ['user' => auth()->user()]);
-        if (!$request->has('username_confirmation') || $request->input('username_confirmation') !== auth()->user()->name) {
-            return response()->json(['message' => 'Confirmação incorreta'], 422);
+    public function destroy(Request $request)
+        {
+            \Log::info('User:', ['user' => auth()->user()]);
+            if (!$request->has('username_confirmation') || $request->input('username_confirmation') !== auth()->user()->name) {
+                return response()->json(['message' => 'Confirmação incorreta'], 422);
+            }
+            // Apaga a conta...
+            $user = auth()->user();
+            $user->delete();
+            return response()->json(['message' => 'Conta apagada com sucesso']);
         }
-        // Apaga a conta...
-        $user = auth()->user();
-        $user->delete();
-        return response()->json(['message' => 'Conta apagada com sucesso']);
-    }
 }

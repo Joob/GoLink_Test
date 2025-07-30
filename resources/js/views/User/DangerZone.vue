@@ -88,36 +88,40 @@ export default {
 }
 
 .danger-zone-button {
-    border: 2px solid #dc2626 !important;
-    background-color: #dc2626 !important;
+    border: 2px solid #ef4444 !important;
+    background-color: #ef4444 !important;
     color: white !important;
     font-weight: bold;
     
     &:hover {
-        background-color: #b91c1c !important;
-        border-color: #b91c1c !important;
+        background-color: #f87171 !important;
+        border-color: #f87171 !important;
         color: white !important;
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4) !important;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4) !important;
     }
     
     &:active {
+        background-color: #ef4444 !important;
+        border-color: #ef4444 !important;
         transform: translateY(0);
         color: white !important;
     }
     
     .dark & {
-        background-color: #dc2626 !important;
-        border-color: #dc2626 !important;
+        background-color: #ef4444 !important;
+        border-color: #ef4444 !important;
         color: white !important;
         
         &:hover {
-            background-color: #b91c1c !important;
-            border-color: #b91c1c !important;
+            background-color: #f87171 !important;
+            border-color: #f87171 !important;
             color: white !important;
         }
         
         &:active {
+            background-color: #ef4444 !important;
+            border-color: #ef4444 !important;
             color: white !important;
         }
     }

@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
+use Domain\Notifications\Controllers\AccountDeletionConfirmationMail;
 
 class DeleteAccountController extends Controller
 {
@@ -31,7 +33,7 @@ class DeleteAccountController extends Controller
     /**
      * Update deletion progress
      */
-    private function updateProgress($userId, $percentage, $currentStep, $completed = false, $details = null)
+    private function updateProgress($userId, $percentage, $currentStep, $completed = false, $details = null, $filesRemaining = null)
     {
         $progressKey = "delete_account_progress_{$userId}";
         
@@ -45,8 +47,12 @@ class DeleteAccountController extends Controller
             $progress['details'] = $details;
         }
         
+        if ($filesRemaining !== null) {
+            $progress['files_remaining'] = $filesRemaining;
+        }
+        
         Cache::put($progressKey, $progress, now()->addMinutes(10));
-        \Log::info("Progress updated: {$percentage}% - {$currentStep}" . ($details ? " - {$details}" : ""));
+        \Log::info("Progress updated: {$percentage}% - {$currentStep}" . ($details ? " - {$details}" : "") . ($filesRemaining !== null ? " - Files remaining: {$filesRemaining}" : ""));
     }
 
     /**
@@ -138,9 +144,12 @@ class DeleteAccountController extends Controller
                     $file->forceDelete();
                     $filesDeleted++;
                     
+                    // Calculate remaining files
+                    $filesRemaining = $totalFiles - $filesDeleted;
+                    
                     // Update progress for files (5% to 50%) with small delay to make progress visible
                     $fileProgress = 5 + (($filesDeleted / $totalFiles) * 45);
-                    $this->updateProgress($userId, $fileProgress, "A eliminar ficheiros", false, "Ficheiro {$filesDeleted}/{$totalFiles}: {$file->basename}");
+                    $this->updateProgress($userId, $fileProgress, "A eliminar ficheiros", false, "Ficheiro {$filesDeleted}/{$totalFiles}: {$file->basename}", $filesRemaining);
                     
                     // Add small delay every few files to make progress visible
                     if ($filesDeleted % 3 == 0) {
@@ -148,7 +157,7 @@ class DeleteAccountController extends Controller
                     }
                 }
             } else {
-                $this->updateProgress($userId, 50, 'Nenhum ficheiro para eliminar', false);
+                $this->updateProgress($userId, 50, 'Nenhum ficheiro para eliminar', false, null, 0);
             }
 
             $this->updateProgress($userId, 50, 'A eliminar pastas...');
@@ -241,12 +250,25 @@ class DeleteAccountController extends Controller
             sleep(1);
             
             // 5. Finally delete the user account
+            $userEmail = $user->email; // Store email before deletion
             $user->delete();
             \Log::info('User account deleted: ' . $user->id);
 
             DB::commit();
             
             $this->updateProgress($userId, 100, 'Conta eliminada com sucesso!', true);
+            
+            // Send confirmation email after successful deletion
+            try {
+                Mail::to($userEmail)->send(new AccountDeletionConfirmationMail(
+                    'Conta Eliminada',
+                    'Agradecemos a sua utilização até à data de hoje, ficamos à espera que voltes muito brevemente, Obrigado Equipa'
+                ));
+                \Log::info('Account deletion confirmation email sent to: ' . $userEmail);
+            } catch (\Exception $e) {
+                \Log::error('Failed to send account deletion confirmation email: ' . $e->getMessage());
+                // Don't fail the deletion process if email fails
+            }
             
             // Add delay before logout to ensure progress is shown
             sleep(2);

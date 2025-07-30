@@ -25,6 +25,14 @@
                 <div class="progress-status">
                     <p class="current-step">{{ deletionProgress.current_step || 'A preparar eliminação...' }}</p>
                     <p v-if="deletionProgress.details" class="progress-details">{{ deletionProgress.details }}</p>
+                    
+                    <!-- File counter display -->
+                    <div v-if="deletionProgress.files_remaining !== undefined" class="files-counter">
+                        <span class="files-counter-text">
+                            Ficheiros restantes: {{ deletionProgress.files_remaining }}
+                        </span>
+                    </div>
+                    
                     <div class="remaining-info">
                         <span v-if="safeProgress < 100">
                             Faltam {{ Math.round(100 - safeProgress) }}%
@@ -326,12 +334,12 @@ export default {
 .progress-percentage {
     font-size: 1.5rem;
     font-weight: bold;
-    color: #dc2626;
+    color: #059669;
     min-width: 60px;
     text-align: right;
     
     .dark & {
-        color: #f87171;
+        color: #34d399;
     }
 }
 
@@ -353,7 +361,7 @@ export default {
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #dc2626 0%, #f87171 100%);
+    background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
     border-radius: 6px;
     transition: width 0.3s ease;
     position: relative;
@@ -412,6 +420,29 @@ export default {
     
     .dark & {
         color: #6b7280;
+    }
+}
+
+.files-counter {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    background-color: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    
+    .dark & {
+        background-color: #374151;
+        border-color: #4b5563;
+    }
+    
+    .files-counter-text {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #059669;
+        
+        .dark & {
+            color: #34d399;
+        }
     }
 }
 

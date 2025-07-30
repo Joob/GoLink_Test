@@ -92,24 +92,17 @@ export default {
     },
     methods: {
         cancelUpload() {
-            // Emit cancel-upload event to stop the actual upload process
+            // Cancel all active uploads using enhanced system
+            this.$store.commit('CLEAR_ALL_CANCEL_TOKENS');
+            this.$store.commit('CLEAR_UPLOAD_PROGRESS');
+            
+            // Also emit cancel-upload event for compatibility
             events.$emit('cancel-upload')
             
-            // Clear all upload progress and queue
-            this.$store.commit('CLEAR_UPLOAD_PROGRESS')
-            
-            // Stop any ongoing uploads in the file manager
+            // Stop any ongoing uploads in the file manager (backward compatibility)
             if (this.$root.cancelTokenSource) {
                 this.$root.cancelTokenSource.cancel('Upload cancelled by user')
             }
-            
-            // Show toast after a small delay
-            setTimeout(() => {
-                events.$emit('toaster', { 
-                    type: 'danger',
-                    message: this.$t('uploaded_canceled'),
-                })
-            }, 100)
         },
     },
     mounted() {
@@ -309,54 +302,43 @@ export default {
     margin-top: 8px;
 }
 
-// Mobile responsiveness
-@media (max-width: 640px) {
-    .upload-progress-container {
-        width: calc(100vw - 40px);
-        max-width: 320px;
-        right: 20px;
-        bottom: 20px;
-    }
-}
-
+// Responsive adjustments
 @media (max-width: 480px) {
     .upload-progress-container {
-        width: calc(100vw - 20px);
+        width: 280px;
         right: 10px;
         bottom: 10px;
-        left: 10px;
-        max-width: none;
+        font-size: 13px;
     }
-
+    
     .upload-progress-header {
         padding: 10px 12px;
-
+        
         .upload-title {
-            margin-left: 8px;
             @include font-size(13);
         }
-
+        
         .cancel-button {
             width: 24px;
             height: 24px;
         }
     }
-
+    
     .upload-progress-body {
         padding: 12px;
     }
-
+    
     .file-info {
         .file-name {
             @include font-size(13);
             margin-bottom: 6px;
         }
-
+        
         .file-stats {
             .progress-percentage {
-                @include font-size(14);
+                @include font-size(15);
             }
-
+            
             .remaining-files {
                 @include font-size(11);
             }
@@ -364,20 +346,71 @@ export default {
     }
 }
 
-@media (max-width: 375px) {
+@media (max-width: 320px) {
+    .upload-progress-container {
+        width: calc(100vw - 20px);
+        right: 10px;
+        left: 10px;
+        max-width: 250px;
+    }
+    
     .upload-progress-header {
         padding: 8px 10px;
+        
+        .upload-title {
+            @include font-size(12);
+        }
+        
+        .cancel-button {
+            width: 22px;
+            height: 22px;
+        }
     }
-
+    
     .upload-progress-body {
         padding: 10px;
     }
+    
+    .file-info {
+        margin-bottom: 10px;
+        
+        .file-name {
+            @include font-size(12);
+            margin-bottom: 4px;
+        }
+        
+        .file-stats {
+            .progress-percentage {
+                @include font-size(14);
+            }
+            
+            .remaining-files {
+                @include font-size(10);
+            }
+        }
+    }
 }
 
-// Landscape mode adjustments
-@media (max-height: 480px) and (orientation: landscape) {
+// Additional mobile landscape fixes
+@media (max-width: 767px) and (orientation: landscape) {
     .upload-progress-container {
         bottom: 10px;
+        max-height: calc(100vh - 20px);
+    }
+}
+
+// Very small screens (iPhone SE, etc.)
+@media (max-width: 280px) {
+    .upload-progress-container {
+        width: calc(100vw - 16px);
+        right: 8px;
+        left: 8px;
+    }
+    
+    .file-info .file-stats {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
     }
 }
 </style>

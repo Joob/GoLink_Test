@@ -242,11 +242,31 @@ const FunctionHelpers = {
 
         Vue.prototype.$cancelUpload = function (fileId) {
             const uploadingFile = store.getters.uploadingFiles[fileId];
+            const cancelToken = store.getters.activeCancelTokens[fileId];
+            
             if (uploadingFile) {
+                // Cancel the axios request if it exists
+                if (cancelToken && typeof cancelToken.cancel === 'function') {
+                    cancelToken.cancel('Upload cancelled by user');
+                }
+                
+                // Clean up file metadata and remove from queue
                 store.commit('CLEAR_UPLOAD_FILE_METADATA', fileId);
-                // Remove from queue
                 store.commit('REMOVE_FILE_FROM_QUEUE', fileId);
+                store.commit('REMOVE_CANCEL_TOKEN', fileId);
+                
                 events.$emit('upload-cancelled', fileId);
+                
+                // Show cancellation toast
+                events.$emit('toaster', { 
+                    type: 'danger',
+                    message: i18n.t('uploaded_canceled'),
+                });
+                
+                // If this was the only file or last file, clear upload progress
+                if (store.getters.fileQueue.length === 0) {
+                    store.commit('CLEAR_UPLOAD_PROGRESS');
+                }
             }
         }
 
@@ -360,6 +380,13 @@ const FunctionHelpers = {
 
             let chunkIndex = 0;
             do {
+                // Check if upload has been cancelled
+                const cancelToken = store.getters.activeCancelTokens[item.id];
+                if (!cancelToken || !store.getters.uploadingFiles[item.id]) {
+                    console.log('Upload cancelled for file:', item.file.name);
+                    return;
+                }
+                
                 // Check again if upload should be paused
                 const currentUploadingFile = store.getters.uploadingFiles[item.id];
                 if (currentUploadingFile && currentUploadingFile.status === 'paused') {
@@ -397,7 +424,8 @@ const FunctionHelpers = {
                             totalUploadedSize: uploadedSize,
                             chunkIndex: chunkIndex,
                             totalChunks: chunksCeil,
-                            chunkSize: chunk.size
+                            chunkSize: chunk.size,
+                            fileId: item.id
                         });
 
                         // Update progress tracking
@@ -415,6 +443,13 @@ const FunctionHelpers = {
                         break;
 
                     } catch (error) {
+                        // Check if this is a cancellation error
+                        if (axios.isCancel(error)) {
+                            console.log('Upload cancelled during chunk upload:', error.message);
+                            isNotGeneralError = false;
+                            break;
+                        }
+                        
                         attempts++;
                         currentChunkMeta.attempts = attempts;
 

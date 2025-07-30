@@ -181,7 +181,7 @@ export default {
         },
         
         startProgressMonitoring() {
-            // Poll progress every 500ms
+            // Poll progress every 800ms (increased from 500ms to give more time between requests)
             this.progressInterval = setInterval(async () => {
                 try {
                     const response = await this.$store.dispatch('getDeleteAccountProgress');
@@ -198,13 +198,34 @@ export default {
                             this.emailConfirmation = '';
                             this.$closePopup();
                             this.$toast?.success?.('Conta apagada com sucesso.');
-                        }, 2000);
+                        }, 3000); // Increased to 3 seconds to show completion message
                     }
                 } catch (error) {
                     console.error('Error checking progress:', error);
-                    // Continue polling even if there's an error
+                    
+                    // If we get 401 or 403, it might mean the account was successfully deleted
+                    if (error.response && [401, 403].includes(error.response.status)) {
+                        console.log('Got auth error - account likely deleted, stopping monitoring');
+                        this.stopProgressMonitoring();
+                        
+                        // Set completion state
+                        this.deletionProgress = {
+                            percentage: 100,
+                            current_step: 'Conta eliminada com sucesso!',
+                            completed: true
+                        };
+                        
+                        setTimeout(() => {
+                            this.isLoading = false;
+                            this.isDeleting = false;
+                            this.emailConfirmation = '';
+                            this.$closePopup();
+                            this.$toast?.success?.('Conta apagada com sucesso.');
+                        }, 2000);
+                    }
+                    // For other errors, continue polling
                 }
-            }, 500);
+            }, 800);
         },
         
         stopProgressMonitoring() {

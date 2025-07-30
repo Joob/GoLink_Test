@@ -92,7 +92,7 @@
                     </ButtonBase>
                     <!-- Garantir :disabled e também um fallback de style -->
                     <ButtonBase
-                        class="w-full danger"
+                        class="w-full danger-solid"
                         button-style="theme"
                         type="submit"
                         :loading="isLoading"
@@ -180,9 +180,9 @@ export default {
             this.isLoading = true;
             this.isDeleting = true;
             
-            // Initialize progress immediately
+            // Initialize progress immediately with a small percentage to show green bar
             this.deletionProgress = {
-                percentage: 0,
+                percentage: 1,
                 current_step: 'Iniciando eliminação da conta...',
                 completed: false,
                 details: null
@@ -220,7 +220,8 @@ export default {
                         percentage: typeof response.percentage === 'number' ? response.percentage : 0,
                         current_step: response.current_step || 'A verificar progresso...',
                         completed: response.completed || false,
-                        details: response.details || null
+                        details: response.details || null,
+                        files_remaining: response.files_remaining !== undefined ? response.files_remaining : undefined
                     };
                     
                     console.log('[Progress] Updated:', this.deletionProgress);

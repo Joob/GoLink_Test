@@ -171,7 +171,8 @@ const actions = {
                 percentage: typeof data.percentage === 'number' ? data.percentage : 0,
                 current_step: data.current_step || 'A verificar progresso...',
                 completed: Boolean(data.completed),
-                details: data.details || null
+                details: data.details || null,
+                files_remaining: data.files_remaining !== undefined ? data.files_remaining : undefined
             };
         } catch (e) {
             console.error('[Store] Erro ao obter progresso:', e);
@@ -181,7 +182,8 @@ const actions = {
                 percentage: 0,
                 current_step: 'Erro ao verificar progresso...',
                 completed: false,
-                details: null
+                details: null,
+                files_remaining: undefined
             };
             
             // If it's an auth error, still throw it so the component can handle the deletion completion logic

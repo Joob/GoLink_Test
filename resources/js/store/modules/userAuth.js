@@ -160,6 +160,20 @@ const actions = {
             
             throw e;
         }
+    },
+    async getDeleteAccountProgress({ getters }) {
+        try {
+            const response = await axios.get(getters.api + '/user/account/progress');
+            return response.data;
+        } catch (e) {
+            console.error('[Store] Erro ao obter progresso:', e);
+            // Return default progress if error
+            return {
+                percentage: 0,
+                current_step: 'A verificar progresso...',
+                completed: false
+            };
+        }
     }
 }
 

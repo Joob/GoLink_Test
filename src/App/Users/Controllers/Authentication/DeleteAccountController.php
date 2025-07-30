@@ -157,10 +157,11 @@ class DeleteAccountController extends Controller
                     }
                 }
             } else {
-                $this->updateProgress($userId, 50, 'Nenhum ficheiro para eliminar', false, null, 0);
+                // No files to delete, but still show 0 files remaining
+                $this->updateProgress($userId, 50, 'Nenhum ficheiro para eliminar', false, 'Utilizador não possui ficheiros', 0);
             }
 
-            $this->updateProgress($userId, 50, 'A eliminar pastas...');
+            $this->updateProgress($userId, 50, 'A eliminar pastas...', false, null, 0);
             sleep(1);
 
             // 2. Delete all user folders
@@ -185,7 +186,7 @@ class DeleteAccountController extends Controller
                 $this->updateProgress($userId, 60, 'Nenhuma pasta para eliminar', false);
             }
 
-            $this->updateProgress($userId, 60, 'A eliminar diretório do utilizador...');
+            $this->updateProgress($userId, 60, 'A eliminar diretório do utilizador...', false, null, 0);
             sleep(1);
 
             // 3. Delete user directory from storage
@@ -260,13 +261,21 @@ class DeleteAccountController extends Controller
             
             // Send confirmation email after successful deletion
             try {
-                Mail::to($userEmail)->send(new AccountDeletionConfirmationMail(
-                    'Conta Eliminada',
-                    'Agradecemos a sua utilização até à data de hoje, ficamos à espera que voltes muito brevemente, Obrigado Equipa'
-                ));
-                \Log::info('Account deletion confirmation email sent to: ' . $userEmail);
+                \Log::info('Attempting to send account deletion confirmation email to: ' . $userEmail);
+                
+                // Ensure we have the necessary mail class
+                if (class_exists('Domain\Notifications\Controllers\AccountDeletionConfirmationMail')) {
+                    Mail::to($userEmail)->send(new AccountDeletionConfirmationMail(
+                        'Conta Eliminada',
+                        'Agradecemos a sua utilização até à data de hoje, ficamos à espera que voltes muito brevemente, Obrigado Equipa'
+                    ));
+                    \Log::info('Account deletion confirmation email sent successfully to: ' . $userEmail);
+                } else {
+                    \Log::error('AccountDeletionConfirmationMail class not found');
+                }
             } catch (\Exception $e) {
                 \Log::error('Failed to send account deletion confirmation email: ' . $e->getMessage());
+                \Log::error('Email error stack trace: ' . $e->getTraceAsString());
                 // Don't fail the deletion process if email fails
             }
             

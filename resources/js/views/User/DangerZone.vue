@@ -93,12 +93,20 @@ export default {
     color: white !important;
     font-weight: bold;
     
+    * {
+        color: white !important;
+    }
+    
     &:hover {
         background-color: #f87171 !important;
         border-color: #f87171 !important;
         color: white !important;
         transform: translateY(-1px);
         box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4) !important;
+        
+        * {
+            color: white !important;
+        }
     }
     
     &:active {
@@ -106,6 +114,18 @@ export default {
         border-color: #ef4444 !important;
         transform: translateY(0);
         color: white !important;
+        
+        * {
+            color: white !important;
+        }
+    }
+    
+    &:focus {
+        color: white !important;
+        
+        * {
+            color: white !important;
+        }
     }
     
     .dark & {
@@ -113,16 +133,36 @@ export default {
         border-color: #ef4444 !important;
         color: white !important;
         
+        * {
+            color: white !important;
+        }
+        
         &:hover {
             background-color: #f87171 !important;
             border-color: #f87171 !important;
             color: white !important;
+            
+            * {
+                color: white !important;
+            }
         }
         
         &:active {
             background-color: #ef4444 !important;
             border-color: #ef4444 !important;
             color: white !important;
+            
+            * {
+                color: white !important;
+            }
+        }
+        
+        &:focus {
+            color: white !important;
+            
+            * {
+                color: white !important;
+            }
         }
     }
 }

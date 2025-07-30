@@ -170,7 +170,8 @@ export default {
                 percentage: 0,
                 current_step: 'Preparando eliminação...',
                 completed: false,
-                details: null
+                details: null,
+                files_remaining: undefined
             },
             progressInterval: null
         }
@@ -185,7 +186,8 @@ export default {
                 percentage: 0,
                 current_step: 'Iniciando eliminação da conta...',
                 completed: false,
-                details: null
+                details: null,
+                files_remaining: undefined
             };
             
             try {
@@ -220,7 +222,8 @@ export default {
                         percentage: typeof response.percentage === 'number' ? response.percentage : 0,
                         current_step: response.current_step || 'A verificar progresso...',
                         completed: response.completed || false,
-                        details: response.details || null
+                        details: response.details || null,
+                        files_remaining: typeof response.files_remaining === 'number' ? response.files_remaining : undefined
                     };
                     
                     console.log('[Progress] Updated:', this.deletionProgress);
@@ -255,7 +258,8 @@ export default {
                         this.deletionProgress = {
                             percentage: 100,
                             current_step: 'Conta eliminada com sucesso!',
-                            completed: true
+                            completed: true,
+                            files_remaining: 0
                         };
                         
                         setTimeout(() => {
@@ -270,7 +274,8 @@ export default {
                         this.deletionProgress = {
                             percentage: this.deletionProgress.percentage || 0,
                             current_step: 'Erro ao verificar progresso...',
-                            completed: false
+                            completed: false,
+                            files_remaining: this.deletionProgress.files_remaining
                         };
                     }
                 }
@@ -361,7 +366,8 @@ export default {
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+    background: linear-gradient(90deg, #10b981 0%, #34d399 100%) !important;
+    background-color: #10b981 !important;
     border-radius: 6px;
     transition: width 0.3s ease;
     position: relative;

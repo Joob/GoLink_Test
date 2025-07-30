@@ -744,11 +744,20 @@ export default {
     margin: 4px !important;
     color: white !important;
     
+    * {
+        color: white !important;
+    }
+    
     &:hover {
         background-color: #f87171 !important;
         border-color: #f87171 !important;
+        color: white !important;
         transform: translateY(-1px);
         box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4) !important;
+        
+        * {
+            color: white !important;
+        }
     }
     
     &:active,
@@ -758,6 +767,44 @@ export default {
         border-color: #ef4444 !important;
         color: white !important;
         transform: none;
+        
+        * {
+            color: white !important;
+        }
+    }
+    
+    .dark & {
+        background-color: #ef4444 !important;
+        border-color: #ef4444 !important;
+        color: white !important;
+        
+        * {
+            color: white !important;
+        }
+        
+        &:hover {
+            background-color: #f87171 !important;
+            border-color: #f87171 !important;
+            color: white !important;
+            
+            * {
+                color: white !important;
+            }
+        }
+        
+        &:active,
+        &:focus,
+        &.router-link-active {
+            background-color: #ef4444 !important;
+            border-color: #ef4444 !important;
+            color: white !important;
+            
+            * {
+                color: white !important;
+            }
+        }
+    }
+}
         box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3) !important;
     }
     

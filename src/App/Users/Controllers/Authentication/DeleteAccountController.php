@@ -31,7 +31,7 @@ class DeleteAccountController extends Controller
     /**
      * Update deletion progress
      */
-    private function updateProgress($userId, $percentage, $currentStep, $completed = false)
+    private function updateProgress($userId, $percentage, $currentStep, $completed = false, $details = null)
     {
         $progressKey = "delete_account_progress_{$userId}";
         
@@ -41,8 +41,12 @@ class DeleteAccountController extends Controller
             'completed' => $completed
         ];
         
+        if ($details) {
+            $progress['details'] = $details;
+        }
+        
         Cache::put($progressKey, $progress, now()->addMinutes(10));
-        \Log::info("Progress updated: {$percentage}% - {$currentStep}");
+        \Log::info("Progress updated: {$percentage}% - {$currentStep}" . ($details ? " - {$details}" : ""));
     }
 
     /**
@@ -79,16 +83,16 @@ class DeleteAccountController extends Controller
         }
 
         // Initialize progress tracking
-        $this->updateProgress($userId, 0, 'Iniciando eliminação da conta...');
+        $this->updateProgress($userId, 0, 'Iniciando eliminação da conta...', false, 'Preparando sistema para eliminação');
         
-        // Add small delay to ensure progress is visible
-        sleep(1);
+        // Add delay to ensure progress is visible
+        sleep(2);
 
         DB::beginTransaction();
 
         try {
             \Log::info('Starting user account deletion process for user: ' . $user->id);
-            $this->updateProgress($userId, 5, 'A preparar eliminação de ficheiros...');
+            $this->updateProgress($userId, 5, 'A preparar eliminação de ficheiros...', false, 'Analisando ficheiros do utilizador');
             sleep(1);
 
             // 1. Delete all user files first (including physical files)
@@ -97,51 +101,54 @@ class DeleteAccountController extends Controller
             $filesDeleted = 0;
             
             \Log::info("Found {$totalFiles} files to delete for user {$user->id}");
+            $this->updateProgress($userId, 5, 'A eliminar ficheiros do utilizador', false, "Encontrados {$totalFiles} ficheiros");
             
-            foreach ($userFiles as $file) {
-                \Log::info('Deleting file: ' . $file->id . ' - ' . $file->basename);
-                
-                // Delete physical file from storage
-                $filePath = "/files/{$file->user_id}/{$file->basename}";
-                if (Storage::exists($filePath)) {
-                    $deleted = Storage::delete($filePath);
-                    \Log::info("Physical file deletion result for {$file->basename}: " . ($deleted ? 'SUCCESS' : 'FAILED'));
-                } else {
-                    \Log::warning("Physical file not found: {$filePath}");
-                }
+            if ($totalFiles > 0) {
+                foreach ($userFiles as $file) {
+                    \Log::info('Deleting file: ' . $file->id . ' - ' . $file->basename);
+                    
+                    // Delete physical file from storage
+                    $filePath = "/files/{$file->user_id}/{$file->basename}";
+                    if (Storage::exists($filePath)) {
+                        $deleted = Storage::delete($filePath);
+                        \Log::info("Physical file deletion result for {$file->basename}: " . ($deleted ? 'SUCCESS' : 'FAILED'));
+                    } else {
+                        \Log::warning("Physical file not found: {$filePath}");
+                    }
 
-                // Delete thumbnail if exists
-                if ($file->thumbnail) {
-                    $thumbnailsDeleted = 0;
-                    collect([
-                        config('vuefilemanager.image_sizes.later'),
-                        config('vuefilemanager.image_sizes.immediately'),
-                    ])->collapse()
-                        ->each(function ($size) use ($file, &$thumbnailsDeleted) {
-                            $thumbnailPath = "/files/{$file->user_id}/{$size['name']}-{$file->basename}";
-                            if (Storage::exists($thumbnailPath)) {
-                                $deleted = Storage::delete($thumbnailPath);
-                                if ($deleted) $thumbnailsDeleted++;
-                                \Log::info("Thumbnail deletion result for {$size['name']}-{$file->basename}: " . ($deleted ? 'SUCCESS' : 'FAILED'));
-                            }
-                        });
-                    \Log::info("Deleted {$thumbnailsDeleted} thumbnails for {$file->basename}");
-                }
+                    // Delete thumbnail if exists
+                    if ($file->thumbnail) {
+                        $thumbnailsDeleted = 0;
+                        collect([
+                            config('vuefilemanager.image_sizes.later'),
+                            config('vuefilemanager.image_sizes.immediately'),
+                        ])->collapse()
+                            ->each(function ($size) use ($file, &$thumbnailsDeleted) {
+                                $thumbnailPath = "/files/{$file->user_id}/{$size['name']}-{$file->basename}";
+                                if (Storage::exists($thumbnailPath)) {
+                                    $deleted = Storage::delete($thumbnailPath);
+                                    if ($deleted) $thumbnailsDeleted++;
+                                    \Log::info("Thumbnail deletion result for {$size['name']}-{$file->basename}: " . ($deleted ? 'SUCCESS' : 'FAILED'));
+                                }
+                            });
+                        \Log::info("Deleted {$thumbnailsDeleted} thumbnails for {$file->basename}");
+                    }
 
-                // Force delete from database
-                $file->forceDelete();
-                $filesDeleted++;
-                
-                // Update progress for files (5% to 50%) with small delay to make progress visible
-                if ($totalFiles > 0) {
+                    // Force delete from database
+                    $file->forceDelete();
+                    $filesDeleted++;
+                    
+                    // Update progress for files (5% to 50%) with small delay to make progress visible
                     $fileProgress = 5 + (($filesDeleted / $totalFiles) * 45);
-                    $this->updateProgress($userId, $fileProgress, "A eliminar ficheiros... ({$filesDeleted}/{$totalFiles})");
+                    $this->updateProgress($userId, $fileProgress, "A eliminar ficheiros", false, "Ficheiro {$filesDeleted}/{$totalFiles}: {$file->basename}");
                     
                     // Add small delay every few files to make progress visible
                     if ($filesDeleted % 3 == 0) {
                         usleep(500000); // 0.5 seconds
                     }
                 }
+            } else {
+                $this->updateProgress($userId, 50, 'Nenhum ficheiro para eliminar', false);
             }
 
             $this->updateProgress($userId, 50, 'A eliminar pastas...');
@@ -154,17 +161,19 @@ class DeleteAccountController extends Controller
             
             \Log::info("Found {$totalFolders} folders to delete for user {$user->id}");
             
-            foreach ($userFolders as $folder) {
-                \Log::info('Deleting folder: ' . $folder->id . ' - ' . $folder->name);
-                $folder->forceDelete();
-                $foldersDeleted++;
-                
-                // Update progress for folders (50% to 60%)
-                if ($totalFolders > 0) {
+            if ($totalFolders > 0) {
+                foreach ($userFolders as $folder) {
+                    \Log::info('Deleting folder: ' . $folder->id . ' - ' . $folder->name);
+                    $folder->forceDelete();
+                    $foldersDeleted++;
+                    
+                    // Update progress for folders (50% to 60%)
                     $folderProgress = 50 + (($foldersDeleted / $totalFolders) * 10);
-                    $this->updateProgress($userId, $folderProgress, "A eliminar pastas... ({$foldersDeleted}/{$totalFolders})");
+                    $this->updateProgress($userId, $folderProgress, "A eliminar pastas", false, "Pasta {$foldersDeleted}/{$totalFolders}: {$folder->name}");
                     usleep(300000); // 0.3 seconds
                 }
+            } else {
+                $this->updateProgress($userId, 60, 'Nenhuma pasta para eliminar', false);
             }
 
             $this->updateProgress($userId, 60, 'A eliminar diretório do utilizador...');
@@ -186,38 +195,40 @@ class DeleteAccountController extends Controller
                 \Log::info("User directory not found: files/{$user->id}");
             }
 
-            $this->updateProgress($userId, 70, 'A eliminar partilhas...');
-            sleep(1);
-
             // 4. Delete user associations
+            $this->updateProgress($userId, 70, 'A eliminar partilhas do utilizador', false);
+            
             // Delete shares
+            $sharesCount = 0;
             if (method_exists($user, 'shares') && $user->shares()->exists()) {
                 $sharesCount = $user->shares()->count();
                 $user->shares()->delete();
                 \Log::info("User shares deleted: {$sharesCount} shares");
             }
             
-            $this->updateProgress($userId, 80, 'A eliminar convites de equipa...');
+            $this->updateProgress($userId, 80, 'A eliminar convites de equipa', false, $sharesCount > 0 ? "Eliminadas {$sharesCount} partilhas" : "Nenhuma partilha encontrada");
             sleep(1);
             
             // Delete team invitations
+            $invitationsCount = 0;
             if (method_exists($user, 'teamInvitations') && $user->teamInvitations()->exists()) {
                 $invitationsCount = $user->teamInvitations()->count();
                 $user->teamInvitations()->delete();
                 \Log::info("User team invitations deleted: {$invitationsCount} invitations");
             }
             
-            $this->updateProgress($userId, 85, 'A eliminar tokens...');
+            $this->updateProgress($userId, 85, 'A eliminar tokens de acesso', false, $invitationsCount > 0 ? "Eliminados {$invitationsCount} convites" : "Nenhum convite encontrado");
             sleep(1);
             
             // Delete tokens
+            $tokensCount = 0;
             if (method_exists($user, 'tokens') && $user->tokens()->exists()) {
                 $tokensCount = $user->tokens()->count();
                 $user->tokens()->delete();
                 \Log::info("User tokens deleted: {$tokensCount} tokens");
             }
             
-            $this->updateProgress($userId, 90, 'A eliminar configurações...');
+            $this->updateProgress($userId, 90, 'A eliminar configurações da conta', false, $tokensCount > 0 ? "Eliminados {$tokensCount} tokens" : "Nenhum token encontrado");
             sleep(1);
             
             // Delete settings
@@ -226,7 +237,7 @@ class DeleteAccountController extends Controller
                 \Log::info('User settings deleted');
             }
             
-            $this->updateProgress($userId, 95, 'A eliminar conta...');
+            $this->updateProgress($userId, 95, 'A eliminar dados da conta', false, 'Configurações eliminadas');
             sleep(1);
             
             // 5. Finally delete the user account

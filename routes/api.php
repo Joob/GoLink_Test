@@ -61,9 +61,9 @@ Route::post('/notifications/{id}/delete', [NotificationController::class, 'destr
 Route::post('/trash/move', [MoveToTrashController::class, 'move'])
     ->middleware('auth:sanctum');
 Route::delete('/user/account', [DeleteAccountController::class, 'destroy'])
-    ->middleware('auth:sanctum');
+    ->middleware(['web', 'auth']);
 Route::get('/user/account/progress', [DeleteAccountController::class, 'getProgress'])
-    ->middleware('auth:sanctum');
+    ->middleware(['web', 'auth']);
 
 // Pages
 Route::get('/page/{page}', ShowPageController::class);

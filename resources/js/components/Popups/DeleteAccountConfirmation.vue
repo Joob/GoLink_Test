@@ -10,23 +10,24 @@
             <div v-if="isDeleting" class="progress-container">
                 <div class="progress-header">
                     <h3 class="progress-title">Estamos a apagar a conta</h3>
-                    <div class="progress-percentage">{{ Math.round(deletionProgress.percentage) }}%</div>
+                    <div class="progress-percentage">{{ Math.round(safeProgress) }}%</div>
                 </div>
                 
                 <div class="progress-bar-container">
                     <div class="progress-bar">
                         <div 
                             class="progress-fill" 
-                            :style="{ width: deletionProgress.percentage + '%' }"
+                            :style="{ width: safeProgress + '%' }"
                         ></div>
                     </div>
                 </div>
                 
                 <div class="progress-status">
-                    <p class="current-step">{{ deletionProgress.current_step }}</p>
+                    <p class="current-step">{{ deletionProgress.current_step || 'A preparar eliminação...' }}</p>
+                    <p v-if="deletionProgress.details" class="progress-details">{{ deletionProgress.details }}</p>
                     <div class="remaining-info">
-                        <span v-if="deletionProgress.percentage < 100">
-                            Faltam {{ 100 - Math.round(deletionProgress.percentage) }}%
+                        <span v-if="safeProgress < 100">
+                            Faltam {{ Math.round(100 - safeProgress) }}%
                         </span>
                         <span v-else class="completion-message">
                             ✓ Concluído! A redirecionar...
@@ -142,6 +143,14 @@ export default {
                 !this.emailConfirmation.trim() ||
                 this.emailConfirmation.trim().toLowerCase() !== this.userEmail.trim().toLowerCase()
             );
+        },
+        safeProgress() {
+            // Ensure we always have a valid number between 0 and 100
+            const progress = this.deletionProgress?.percentage;
+            if (typeof progress !== 'number' || isNaN(progress)) {
+                return 0;
+            }
+            return Math.max(0, Math.min(100, progress));
         }
     },
     data() {
@@ -152,7 +161,8 @@ export default {
             deletionProgress: {
                 percentage: 0,
                 current_step: 'Preparando eliminação...',
-                completed: false
+                completed: false,
+                details: null
             },
             progressInterval: null
         }
@@ -162,9 +172,20 @@ export default {
             this.isLoading = true;
             this.isDeleting = true;
             
+            // Initialize progress immediately
+            this.deletionProgress = {
+                percentage: 0,
+                current_step: 'Iniciando eliminação da conta...',
+                completed: false,
+                details: null
+            };
+            
             try {
-                // Start progress monitoring
+                // Start progress monitoring before the actual delete request
                 this.startProgressMonitoring();
+                
+                // Small delay to ensure the user sees the initial progress
+                await new Promise(resolve => setTimeout(resolve, 1000));
                 
                 await this.$store.dispatch('deleteUserAccount', {
                     email_confirmation: this.emailConfirmation,
@@ -185,11 +206,25 @@ export default {
             this.progressInterval = setInterval(async () => {
                 try {
                     const response = await this.$store.dispatch('getDeleteAccountProgress');
-                    this.deletionProgress = response;
+                    
+                    // Ensure we have a valid response with proper defaults
+                    this.deletionProgress = {
+                        percentage: typeof response.percentage === 'number' ? response.percentage : 0,
+                        current_step: response.current_step || 'A verificar progresso...',
+                        completed: response.completed || false,
+                        details: response.details || null
+                    };
+                    
+                    console.log('[Progress] Updated:', this.deletionProgress);
                     
                     // If deletion is completed
-                    if (response.completed || response.percentage >= 100) {
+                    if (this.deletionProgress.completed || this.deletionProgress.percentage >= 100) {
                         this.stopProgressMonitoring();
+                        
+                        // Ensure we show 100% completion
+                        this.deletionProgress.percentage = 100;
+                        this.deletionProgress.current_step = 'Conta eliminada com sucesso!';
+                        this.deletionProgress.completed = true;
                         
                         // Wait a moment to show completion then redirect
                         setTimeout(() => {
@@ -222,8 +257,14 @@ export default {
                             this.$closePopup();
                             this.$toast?.success?.('Conta apagada com sucesso.');
                         }, 2000);
+                    } else {
+                        // For other errors, show error state but continue polling for a bit
+                        this.deletionProgress = {
+                            percentage: this.deletionProgress.percentage || 0,
+                            current_step: 'Erro ao verificar progresso...',
+                            completed: false
+                        };
                     }
-                    // For other errors, continue polling
                 }
             }, 800);
         },
@@ -360,6 +401,17 @@ export default {
     
     .dark & {
         color: #d1d5db;
+    }
+}
+
+.progress-details {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    margin: 0 0 0.5rem 0;
+    font-style: italic;
+    
+    .dark & {
+        color: #6b7280;
     }
 }
 

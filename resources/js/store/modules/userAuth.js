@@ -164,15 +164,33 @@ const actions = {
     async getDeleteAccountProgress({ getters }) {
         try {
             const response = await axios.get(getters.api + '/user/account/progress');
-            return response.data;
+            
+            // Ensure we return a properly structured object with safe defaults
+            const data = response.data || {};
+            return {
+                percentage: typeof data.percentage === 'number' ? data.percentage : 0,
+                current_step: data.current_step || 'A verificar progresso...',
+                completed: Boolean(data.completed),
+                details: data.details || null
+            };
         } catch (e) {
             console.error('[Store] Erro ao obter progresso:', e);
-            // Return default progress if error
-            return {
+            
+            // Return proper defaults if error (but still throw error so component can handle auth issues)
+            const defaultProgress = {
                 percentage: 0,
-                current_step: 'A verificar progresso...',
-                completed: false
+                current_step: 'Erro ao verificar progresso...',
+                completed: false,
+                details: null
             };
+            
+            // If it's an auth error, still throw it so the component can handle the deletion completion logic
+            if (e.response && [401, 403].includes(e.response.status)) {
+                throw e;
+            }
+            
+            // For other errors, return defaults
+            return defaultProgress;
         }
     }
 }

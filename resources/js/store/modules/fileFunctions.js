@@ -226,8 +226,13 @@ const actions = {
             }[router.currentRoute.name] || '/api/upload/chunks'
 
             // Create cancel token for axios cancellation
-            const CancelToken = axios.CancelToken,
-                source = CancelToken.source()
+            const CancelToken = axios.CancelToken
+            const source = CancelToken.source()
+            
+            // Store the cancel token source in Vue root instance for global access
+            if (Vue.prototype.$root) {
+                Vue.prototype.$root.cancelTokenSource = source
+            }
             
             // Store cancel token in state for this file
             if (fileId) {
@@ -288,6 +293,11 @@ const actions = {
                     // Clean up cancel token for this file
                     if (fileId) {
                         commit('REMOVE_CANCEL_TOKEN', fileId);
+                    }
+                    
+                    // Also clear cancel token source for backward compatibility
+                    if (Vue.prototype.$root) {
+                        Vue.prototype.$root.cancelTokenSource = null
                     }
                     
                     resolve(response)
@@ -363,6 +373,11 @@ const actions = {
                         commit('REMOVE_CANCEL_TOKEN', fileId);
                     }
                     
+                    // Also clear cancel token source for backward compatibility
+                    if (Vue.prototype.$root) {
+                        Vue.prototype.$root.cancelTokenSource = null
+                    }
+                    
                     // Check if this is a cancellation error
                     if (axios.isCancel(error)) {
                         console.log('Upload cancelled:', error.message);
@@ -371,13 +386,13 @@ const actions = {
                     }
                     
                     try {
-                      let title = '';
-                      let message = '';
-            
+                        let title = '';
+                        let message = '';
+                
                         // Check the error status code and set the title accordingly
                         if (error.response && error.response.status) {
                             const statusCode = error.response.status;
-                
+                    
                             switch (statusCode) {
                             case 423:
                                 title = i18n.t('popup_exceed_limit.title');
@@ -412,7 +427,7 @@ const actions = {
                             reject(error);
                             return;
                         }
-                
+                    
                         // Display the error pop-up if there is a title
                         if (title !== '') {
                             events.$emit('alert:open', {
@@ -427,8 +442,8 @@ const actions = {
                         reject(error);
             
                     } catch (error) {
-                      console.error(error);
-                      reject(error);
+                        console.error(error);
+                        reject(error);
                     }
                 })
         })

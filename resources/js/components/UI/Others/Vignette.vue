@@ -2,7 +2,6 @@
     <transition name="vignette">
         <div
             v-if="isVisible"
-            class="vignette bg-opacity-[0.35] dark:bg-opacity-[0.70]"
             @click="closePopup"
         ></div>
     </transition>

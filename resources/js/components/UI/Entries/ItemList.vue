@@ -9,7 +9,6 @@
         spellcheck="false"
         style="margin-bottom: 1rem;"
     >
-
         <!--MultiSelecting for the mobile version-->
         <CheckBox v-if="isMultiSelectMode" v-model="isChecked" :is-clicked="isClicked" class="mr-5" />
 
@@ -17,7 +16,7 @@
         <div class="relative w-16 shrink-0">
             <!--Member thumbnail for team folders-->
             <MemberAvatar
-                v-if="user && canShowAuthor"
+                v-if="canShowAuthor"
                 :size="28"
                 :is-border="true"
                 :member="entry.data.relationships.creator"
@@ -26,29 +25,29 @@
 
             <!--Emoji Icon-->
             <Emoji
-                v-if="entry.data.attributes.emoji"
+                v-if="hasEmoji"
                 :emoji="entry.data.attributes.emoji"
                 class="ml-1 scale-110 transform text-5xl"
             />
 
             <!--Folder Icon-->
-            <FolderIcon v-if="isFolder && !entry.data.attributes.emoji" :item="entry" />
+            <FolderIcon v-else-if="isFolder" :item="entry" />
 
             <!--File Icon-->
             <FileIconThumbnail
-                v-if="isFile || isVideo || isAudio || (isImage && !entry.data.attributes.thumbnail)"
+                v-else-if="!isImage || !hasThumbnail"
                 :entry="entry"
                 class="pr-2"
             />
 
             <!--Image thumbnail-->
             <img
-                v-if="isImage && entry.data.attributes.thumbnail"
+                v-else-if="isImage && hasThumbnail"
                 class="ml-0.5 h-12 w-12 rounded object-cover pointer-events-none"
                 :src="imageSrc"
-				alt=""
+                :alt="itemName"
                 loading="lazy"
-				@error="replaceByOriginal"
+                @error="replaceByOriginal"
             />
         </div>
 
@@ -58,14 +57,14 @@
             <span
                 class="item-name mb-0.5 block overflow-hidden text-ellipsis whitespace-nowrap text-sm font-bold lg:pr-0 pr-4"
                 :class="{
-					'hover:underline cursor-text': canEditName,
-					'lg:!pr-16': mobileHandler && $isMobile(),
+                    'hover:underline cursor-text': canEditName,
+                    'lg:!pr-16': isMobileHandler,
                 }"
                 ref="name"
                 @input="renameItem"
                 @keydown.delete.stop
                 @click.stop
-				@keydown.enter="$refs.name.blur()"
+                @keydown.enter="$refs.name.blur()"
                 :contenteditable="canEditName"
             >
                 {{ itemName }}
@@ -74,9 +73,11 @@
             <!--Item sub line-->
             <div class="flex items-center">
                 <!--Shared Icon-->
-                <div v-if="$checkPermission('master') && entry.data.relationships.shared">
-                    <link-icon size="12" class="text-theme dark-text-theme vue-feather mr-1.5" />
-                </div>
+                <link-icon 
+                    v-if="isShared" 
+                    size="12" 
+                    class="text-theme dark-text-theme vue-feather mr-1.5" 
+                />
 
                 <!--File & Image sub line-->
                 <small v-if="!isFolder" class="block text-xs text-gray-500 dark:text-gray-500">
@@ -84,21 +85,18 @@
                 </small>
 
                 <!--Folder sub line-->
-                <small v-if="isFolder" class="block text-xs text-gray-500 dark:text-gray-500">
-                    {{ folderItems === 0 ? $t('empty') : $tc('folder.item_counts', folderItems) }},
-                    {{ timeStamp }}
+                <small v-else class="block text-xs text-gray-500 dark:text-gray-500">
+                    {{ folderSubline }}, {{ timeStamp }}
                 </small>
             </div>
         </div>
 
-        <br>
-        <br>
-
         <!-- Mobile item action button-->
-        <div v-if="mobileHandler && !isMultiSelectMode && $isMobile()" class="relative flex-grow pr-1 text-right">
+        <div v-if="isMobileHandler && !isMultiSelectMode" class="relative flex-grow pr-1 text-right">
             <div
+                v-if="!isMobile"
                 @mouseup.stop="$openInDetailPanel(entry)"
-                class="absolute right-10 -mr-4 hidden -translate-y-2/4 transform p-2.5 lg:block"
+                class="absolute right-10 -mr-4 -translate-y-2/4 transform p-2.5"
             >
                 <eye-icon size="18" class="vue-feather inline-block opacity-30" />
             </div>
@@ -132,125 +130,199 @@ export default {
         EyeIcon,
         Emoji,
     },
-    props: [
-		'mobileHandler',
-		'highlight',
-		'entry',
-	],
-	watch: {
-		isChecked: function (val) {
-			if (val) {
-				this.$store.commit('ADD_ITEM_TO_CLIPBOARD', this.entry)
-			} else {
-				this.$store.commit('REMOVE_ITEM_FROM_CLIPBOARD', this.entry.data.id)
-			}
-		}
-	},
+    props: {
+        mobileHandler: Boolean,
+        highlight: Boolean,
+        entry: {
+            type: Object,
+            required: true
+        }
+    },
     data() {
         return {
-            mobileMultiSelect: false,
-            itemName: undefined,
-            isSelected: false,
-			isChecked: false,
-			imageSrc: undefined,
-		}
+            itemName: '',
+            isChecked: false,
+            imageSrc: null,
+            imageError: false,
+        }
     },
     computed: {
-        ...mapGetters(['isMultiSelectMode', 'clipboard', 'user']),
-        isClicked() {
-            return this.clipboard.some((element) => element.data.id === this.entry.data.id)
+        ...mapGetters(['isMultiSelectMode', 'clipboard', 'user', 'sharedDetail']),
+        
+        // Cache para tipo de item
+        itemType() {
+            return this.entry.data.type
         },
         isVideo() {
-            return this.entry.data.type === 'video'
+            return this.itemType === 'video'
         },
         isAudio() {
-            return this.entry.data.type === 'audio'
+            return this.itemType === 'audio'
         },
         isFile() {
-            return this.entry.data.type === 'file'
+            return this.itemType === 'file'
         },
         isImage() {
-            return this.entry.data.type === 'image'
+            return this.itemType === 'image'
         },
         isFolder() {
-            return this.entry.data.type === 'folder'
+            return this.itemType === 'folder'
         },
+        
+        // Cache para atributos
+        attributes() {
+            return this.entry.data.attributes
+        },
+        hasEmoji() {
+            return !!this.attributes.emoji
+        },
+        hasThumbnail() {
+            return !!this.attributes.thumbnail
+        },
+        
+        // Otimização de condições complexas
+        isClicked() {
+            const id = this.entry.data.id
+            return this.clipboard.some(element => element.data.id === id)
+        },
+        isMobileHandler() {
+            return this.mobileHandler && this.$isMobile()
+        },
+        isMobile() {
+            return this.$isMobile()
+        },
+        isShared() {
+            return this.$checkPermission('master') && this.entry.data.relationships.shared
+        },
+        isDeleted() {
+            return !!this.attributes.deleted_at
+        },
+        
         timeStamp() {
-            return this.entry.data.attributes.deleted_at
-                ? this.$t('item_thumbnail.deleted_at', {
-                      time: this.entry.data.attributes.deleted_at,
-                  })
-                : this.entry.data.attributes.created_at
+            return this.isDeleted
+                ? this.$t('item_thumbnail.deleted_at', { time: this.attributes.deleted_at })
+                : this.attributes.created_at
         },
+        
         canEditName() {
-            return (
-                !this.$isMobile() &&
-                !this.$isThisRoute(this.$route, ['Trash']) &&
-                !this.$checkPermission('visitor') &&
-                !(this.sharedDetail && this.sharedDetail.attributes.type === 'file')
-            )
+            if (this.isMobile) return false
+            if (this.$isThisRoute(this.$route, ['Trash'])) return false
+            if (this.$checkPermission('visitor')) return false
+            return !(this.sharedDetail?.attributes.type === 'file')
         },
+        
         folderItems() {
-            return this.entry.data.attributes.deleted_at
-                ? this.entry.data.attributes.trashed_items
-                : this.entry.data.attributes.items
+            return this.isDeleted
+                ? this.attributes.trashed_items
+                : this.attributes.items
         },
+        
+        folderSubline() {
+            return this.folderItems === 0 
+                ? this.$t('empty') 
+                : this.$tc('folder.item_counts', this.folderItems)
+        },
+        
         canShowAuthor() {
-            return !this.isFolder && (this.entry.data.relationships.creator && this.user.data.id !== this.entry.data.relationships.creator.data.id)
+            if (this.isFolder) return false
+            const creator = this.entry.data.relationships.creator
+            return creator && this.user.data.id !== creator.data.id
         },
+        
         canDrag() {
             return !this.isDeleted && this.$checkPermission(['master', 'editor'])
         },
     },
+    watch: {
+        isChecked(val) {
+            if (val) {
+                this.$store.commit('ADD_ITEM_TO_CLIPBOARD', this.entry)
+            } else {
+                this.$store.commit('REMOVE_ITEM_FROM_CLIPBOARD', this.entry.data.id)
+            }
+        },
+        
+        // Observa mudanças no entry para atualizar dados
+        'entry.data.attributes.name'(newName) {
+            this.itemName = newName
+        }
+    },
     methods: {
-		getImageSrc() {
-			this.imageSrc = this.entry.data.attributes.mimetype === 'svg'
-				? this.entry.data.attributes.file_url
-				: this.entry.data.attributes.thumbnail.xs
-		},
-		replaceByOriginal() {
-			this.imageSrc = this.entry.data.attributes.file_url
-		},
+        getImageSrc() {
+            if (!this.isImage) return
+            
+            const mimetype = this.attributes.mimetype
+            if (mimetype === 'svg' || mimetype === 'image/svg+xml') {
+                this.imageSrc = this.attributes.file_url
+            } else if (this.hasThumbnail) {
+                this.imageSrc = this.attributes.thumbnail.xs
+            } else {
+                this.imageSrc = this.attributes.file_url
+            }
+        },
+        
+        replaceByOriginal() {
+            if (!this.imageError) {
+                this.imageError = true
+                this.imageSrc = this.attributes.file_url
+            }
+        },
+        
         showItemActions() {
             this.$store.commit('CLIPBOARD_CLEAR')
             this.$store.commit('ADD_ITEM_TO_CLIPBOARD', this.entry)
-
             this.$showMobileMenu('file-menu')
             events.$emit('mobile-context-menu:show', this.entry)
         },
-        renameItem: debounce(function (e) {
-            // Prevent submit empty string
-            if (e.target.innerText.trim() === '') return
-
+        
+        // Debounce já otimizado
+        renameItem: debounce(function(e) {
+            const newName = e.target.innerText.trim()
+            if (!newName || newName === this.itemName) return
+            
             this.$store.dispatch('renameItem', {
                 id: this.entry.data.id,
-                type: this.entry.data.type,
-                name: e.target.innerText,
+                type: this.itemType,
+                name: newName,
             })
         }, 300),
     },
+    
     created() {
-        // Change item name
-        events.$on('change:name', (item) => {
-            if (this.entry.data.id === item.id) {
-                this.itemName = item.name
+        // Inicializa dados
+        this.itemName = this.attributes.name
+        
+        if (this.isImage) {
+            this.getImageSrc()
+        }
+        
+        // Event listeners
+        this._listeners = {
+            changeName: (item) => {
+                if (this.entry.data.id === item.id) {
+                    this.itemName = item.name
+                }
+            },
+            newFolderFocus: (id) => {
+                if (!this.isMobile && this.entry.data.id === id) {
+                    this.$nextTick(() => {
+                        this.$refs.name?.focus()
+                        document.execCommand('selectAll')
+                    })
+                }
             }
-        })
-
-        // Autofocus after newly created folder
-        events.$on('newFolder:focus', (id) => {
-            if (!this.$isMobile() && this.entry.data.id === id) {
-                this.$refs.name.focus()
-                document.execCommand('selectAll')
-            }
-        })
-
-		// Set item name to own component variable
-		this.itemName = this.entry.data.attributes.name
-
-		if (this.entry.data.type === 'image') {
-			this.getImageSrc()
-		}
-	},
+        }
+        
+        events.$on('change:name', this._listeners.changeName)
+        events.$on('newFolder:focus', this._listeners.newFolderFocus)
+    },
+    
+    beforeDestroy() {
+        // Limpa event listeners
+        if (this._listeners) {
+            events.$off('change:name', this._listeners.changeName)
+            events.$off('newFolder:focus', this._listeners.newFolderFocus)
+        }
+    }
 }
 </script>

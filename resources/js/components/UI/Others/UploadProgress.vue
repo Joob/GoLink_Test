@@ -92,11 +92,23 @@ export default {
     },
     methods: {
         cancelUpload() {
-            // Cancel all active uploads
+            // Cancel all active uploads using enhanced system
             this.$store.commit('CLEAR_ALL_CANCEL_TOKENS');
             this.$store.commit('CLEAR_UPLOAD_PROGRESS');
+            
+            // Also emit cancel-upload event for compatibility
+            events.$emit('cancel-upload')
+            
+            // Stop any ongoing uploads in the file manager (backward compatibility)
+            if (this.$root.cancelTokenSource) {
+                this.$root.cancelTokenSource.cancel('Upload cancelled by user')
+            }
         },
     },
+    mounted() {
+        // Store cancel token source in root for access across components
+        this.$root.cancelTokenSource = null;
+    }
 }
 </script>
 
@@ -177,6 +189,7 @@ export default {
         justify-content: center;
         width: 24px;
         height: 24px;
+        flex-shrink: 0;
 
         .upload-icon {
             font-size: 16px;
@@ -189,6 +202,14 @@ export default {
         font-weight: 600;
         @include font-size(14);
         color: $text;
+        min-width: 0; // Allow text truncation
+        
+        span {
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
         .dark & {
             color: $dark_mode_text_primary;
@@ -207,6 +228,7 @@ export default {
         color: $text-muted;
         cursor: pointer;
         transition: all 0.2s ease;
+        flex-shrink: 0;
 
         &:hover {
             background: rgba($red, 0.1);
@@ -250,17 +272,24 @@ export default {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 10px;
 
         .progress-percentage {
             font-weight: 700;
             @include font-size(16);
             color: $theme;
+            flex-shrink: 0;
         }
 
         .remaining-files {
             @include font-size(12);
             color: $text-muted;
             font-weight: 500;
+            text-align: right;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
 
             .dark & {
                 color: $dark_mode_text_secondary;

@@ -6,7 +6,6 @@ use App\Users\DTO\CreateUserData;
 use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
 use App\Users\Resources\UserResource;
-use App\Users\Resources\UsersCollection;
 use App\Users\Actions\CreateNewUserAction;
 use Domain\Admin\Requests\CreateUserByAdmin;
 use VueFileManager\Subscription\Domain\Plans\Exceptions\MeteredBillingPlanDoesntExist;
@@ -15,13 +14,12 @@ class UserController extends Controller
 {
     public function __construct(
         protected CreateNewUserAction $createNewUser,
-    ) {
-    }
+    ) {}
 
     /**
      * Get all users
      */
-    public function index(): UsersCollection
+    public function index()
     {
         $users = User::sortable(['created_at', 'DESC'])
             ->paginate(15);
@@ -68,5 +66,17 @@ class UserController extends Controller
         $user->save();
 
         return response()->json(new UserResource($user), 201);
+    }
+    
+public function destroy(Request $request)
+    {
+        \Log::info('User:', ['user' => auth()->user()]);
+        if (!$request->has('username_confirmation') || $request->input('username_confirmation') !== auth()->user()->name) {
+            return response()->json(['message' => 'Confirmação incorreta'], 422);
+        }
+        // Apaga a conta...
+        $user = auth()->user();
+        $user->delete();
+        return response()->json(['message' => 'Conta apagada com sucesso']);
     }
 }

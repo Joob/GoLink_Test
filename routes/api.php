@@ -36,7 +36,11 @@ use App\Console\Commands\SetupDevEnvironment;
 use Domain\Notifications\Controllers\FlushUserNotificationsController;
 use Domain\Notifications\Controllers\MarkUserNotificationsAsReadController;
 use App\Users\Controllers\Authentication\DestroyActiveBearerTokenController;
-use App\Users\Controllers\Authentication\DestroyAllActiveBearerTokenController;
+use App\Users\Controllers\Authentication\DestroyLogoutController;
+use App\Users\Controllers\Authentication\ResetCSRFIDController;
+use App\Users\Controllers\Authentication\NotificationController;
+use App\Users\Controllers\Account\MoveToTrashController;
+use App\Users\Controllers\Authentication\DeleteAccountController;
 use App\Users\Controllers\Authentication\AuthenticateAndReturnBearerTokenController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -48,6 +52,16 @@ use App\Http\Controllers\CounterController;
 // Ping Pong
 Route::get('/ping', PingAPIController::class);
 Route::get('/config', GetConfigController::class);
+
+// Delete Notification
+Route::post('/notifications/{id}/delete', [NotificationController::class, 'destroy']) 
+    ->middleware('auth:sanctum');
+
+// Delete Account/Files/Folders
+Route::post('/trash/move', [MoveToTrashController::class, 'move'])
+    >middleware('auth:sanctum');
+Route::delete('/user/account', [DeleteAccountController::class, 'destroy'])
+    >middleware('auth:sanctum');
 
 // Pages
 Route::get('/page/{page}', ShowPageController::class);
@@ -68,8 +82,9 @@ Route::get('/settings', GetSettingsValueController::class);
 Route::post('/register', RegisterUserController::class);
 Route::post('/login', AuthenticateAndReturnBearerTokenController::class)
     ->middleware('throttle:sign-in'); 
-Route::post('/logout', DestroyActiveBearerTokenController::class);
-Route::post('/logoutAllSessions', [DestroyAllActiveBearerTokenController::class, 'logoutAllSessions'])->middleware('auth');
+Route::post('/logout', DestroyLogoutController::class);
+Route::post('/ResetCSRF', [ResetCSRFIDController::class, '__invoke'])
+    ->middleware('auth:sanctum');
 
 // Socialite
 Route::get('/socialite/{provider}/redirect', SocialiteRedirectController::class);
@@ -82,7 +97,6 @@ Route::group(['prefix' => 'password'], function () {
 
 // User master Routes
 Route::group(['middleware' => ['auth:sanctum']], function () {
-    // Browse
 
     //Get the Limitation info of user
     Route::post('/user/info', function (Request $request) {

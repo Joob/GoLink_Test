@@ -86,19 +86,12 @@
                 {{ $t('access_login') }}
             </FormLabel>
 
-            <!--<ButtonBase
-                button-style="theme"
-                class="button-base w-full danger sm:w-auto"
-            >
-                {{ $t('auto_logout_session') }}
-            </ButtonBase>-->
-
             <InfoBox>
                 <p>{{ $t('clean_all_sessions') }}</p>
             </InfoBox>
 
             <ButtonBase
-                @click.native="openConfirmDeleteAllSessionsIdPopup"
+                @click.native="openConfirmResetCSRF"
                 type="submit"
                 button-style="theme"
                 class="button-base w-full danger sm:w-auto"
@@ -165,6 +158,26 @@
                 {{ $t('profile.store_pass') }}
             </ButtonBase>
         </ValidationObserver>
+
+        <!--Delete Account-->
+        <div class="card shadow-card">
+            <FormLabel icon="trash-2">
+                Apagar Conta
+            </FormLabel>
+
+            <InfoBox>
+                <p>Apagar dados da conta, respectivos ficheiros, tudo o que tenha guardado na conta, será apagado permanentemente.</p>
+            </InfoBox>
+
+            <ButtonBase
+                @click.native="openDeleteAccountPopup"
+                type="submit"
+                button-style="danger"
+                class="button-base w-full danger sm:w-auto"
+            >
+                Apagar conta
+            </ButtonBase>
+        </div>
     </div>
 </template>
 
@@ -306,15 +319,17 @@ export default {
         openCreateTokenPopup() {
             events.$emit('popup:open', { name: 'create-personal-token' })
         },
-        /*openConfirmDeleteAllSessionsIdPopup() {
-            events.$emit('popup:open', { name: 'delete-all-sessions-id' })
-        },*/
-        openConfirmDeleteAllSessionsIdPopup() {
+        openConfirmResetCSRF() {
             events.$emit('popup:open', {
-                name: 'delete-all-sessions-id',
+                name: 'reset-csrf',
                 options: {
-                    action: 'logoutAllSessions',
+                    action: 'ResetCSRF',
                 },
+            })
+        },
+        openDeleteAccountPopup() {
+            events.$emit('popup:open', { 
+                name: 'delete-account-confirmation'
             })
         },
         formatDate(date) {

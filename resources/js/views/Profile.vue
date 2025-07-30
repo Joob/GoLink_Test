@@ -20,8 +20,11 @@
         <!--Access Token Popup-->
         <CreatePersonalTokenPopup v-if="!isLoading && user" />
 
-        <!--Delete All Sessions ID Popup-->
-        <DeleteAllSessionsIdPopup v-if="!isLoading && user" />
+        <!--Reset CSRF ID-->
+        <ResetCSRFIdPopup v-if="!isLoading && user" />
+
+        <!--Delete Permanently Account-->
+        <DeleteAccountConfirmation v-if="!isLoading && user" />
 
         <!--Payments Popup-->
         <SubscribeAccountPopup v-if="!isLoading && user && config.subscriptionType === 'fixed'" />
@@ -83,7 +86,8 @@ import FilePreview from '../components/FilePreview/FilePreview'
 import Spotlight from '../components/Spotlight/Spotlight'
 import TwoFactorRecoveryCodesPopup from '../components/TwoFactorSetup/TwoFactorRecoveryCodesPopup'
 import CreatePersonalTokenPopup from '../components/Popups/CreatePersonalTokenPopup'
-import DeleteAllSessionsIdPopup from '../components/Popups/DeleteAllSessionsIdPopup'
+import ResetCSRFIdPopup from '../components/Popups/ResetCSRFIdPopup'
+import DeleteAccountConfirmation from '../components/Popups/DeleteAccountConfirmation'
 import TwoFactorQrSetupPopup from '../components/TwoFactorSetup/TwoFactorQrSetupPopup'
 import AvatarInput from '../components/Inputs/AvatarInput'
 import ColorLabel from '../components/UI/Labels/ColorLabel'
@@ -117,7 +121,8 @@ export default {
         Spotlight,
         TwoFactorRecoveryCodesPopup,
         CreatePersonalTokenPopup,
-        DeleteAllSessionsIdPopup,
+        ResetCSRFIdPopup,
+        DeleteAccountConfirmation,
         TwoFactorQrSetupPopup,
         AvatarInput,
         ColorLabel,

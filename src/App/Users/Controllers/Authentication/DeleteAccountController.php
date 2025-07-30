@@ -45,46 +45,85 @@ class DeleteAccountController extends Controller
         DB::beginTransaction();
 
         try {
-            // 2. Mover todos os ficheiros e pastas do usuário para o trash
-            $fileIds = $user->files()->pluck('id')->toArray();
-            $folderIds = $user->folders()->pluck('id')->toArray();
+            \Log::info('Starting user account deletion process for user: ' . $user->id);
 
-            if (!empty($fileIds) || !empty($folderIds)) {
-                // Chama o controller de mover para trash (ajuste conforme seu controller real)
-                app(\App\Users\Controllers\Account\MoveToTrashController::class)->move([
-                    'files' => $fileIds,
-                    'folders' => $folderIds,
-                    'user_id' => $user->id
-                ]);
+            // 1. Delete all user files first (including physical files)
+            $userFiles = $user->files()->withTrashed()->get();
+            foreach ($userFiles as $file) {
+                \Log::info('Deleting file: ' . $file->id . ' - ' . $file->basename);
+                
+                // Delete physical file from storage
+                if (Storage::exists("/files/{$file->user_id}/{$file->basename}")) {
+                    Storage::delete("/files/{$file->user_id}/{$file->basename}");
+                    \Log::info('Physical file deleted: ' . $file->basename);
+                }
+
+                // Delete thumbnail if exists
+                if ($file->thumbnail) {
+                    collect([
+                        config('vuefilemanager.image_sizes.later'),
+                        config('vuefilemanager.image_sizes.immediately'),
+                    ])->collapse()
+                        ->each(function ($size) use ($file) {
+                            $thumbnailPath = "/files/{$file->user_id}/{$size['name']}-{$file->basename}";
+                            if (Storage::exists($thumbnailPath)) {
+                                Storage::delete($thumbnailPath);
+                            }
+                        });
+                }
+
+                // Force delete from database
+                $file->forceDelete();
             }
 
-            // 3. Chamar o dump da lixeira (apaga definitivamente)
-            // Simula uma request DELETE no endpoint da lixeira
-            $requestTrash = Request::create('/api/trash/dump', 'DELETE');
-            app()->handle($requestTrash);
+            // 2. Delete all user folders
+            $userFolders = $user->folders()->withTrashed()->get();
+            foreach ($userFolders as $folder) {
+                \Log::info('Deleting folder: ' . $folder->id . ' - ' . $folder->name);
+                $folder->forceDelete();
+            }
 
-            // 4. Apagar o registro do usuário e associações
-            // Verificar se as relações existem antes de tentar deletar
-            if ($user->shares()->exists()) {
+            // 3. Delete user directory from storage
+            if (Storage::exists("files/{$user->id}")) {
+                Storage::deleteDirectory("files/{$user->id}");
+                \Log::info('User directory deleted: files/' . $user->id);
+            }
+
+            // 4. Delete user associations
+            // Delete shares
+            if (method_exists($user, 'shares') && $user->shares()->exists()) {
                 $user->shares()->delete();
+                \Log::info('User shares deleted');
             }
             
-            if ($user->teamInvitations()->exists()) {
+            // Delete team invitations
+            if (method_exists($user, 'teamInvitations') && $user->teamInvitations()->exists()) {
                 $user->teamInvitations()->delete();
+                \Log::info('User team invitations deleted');
             }
             
+            // Delete tokens
             if (method_exists($user, 'tokens') && $user->tokens()->exists()) {
                 $user->tokens()->delete();
+                \Log::info('User tokens deleted');
             }
             
+            // Delete settings
             if ($user->settings()->exists()) {
                 $user->settings()->delete();
+                \Log::info('User settings deleted');
             }
             
+            // 5. Finally delete the user account
             $user->delete();
+            \Log::info('User account deleted: ' . $user->id);
 
             DB::commit();
-            Auth::logout();
+            
+            // 6. Logout using proper method from session
+            Auth::guard('web')->logout();
+            request()->session()->invalidate();
+            request()->session()->regenerateToken();
 
             return response()->json([
                 'message' => 'Conta apagada com sucesso'

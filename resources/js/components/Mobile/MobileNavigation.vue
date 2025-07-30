@@ -745,10 +745,20 @@ export default {
     color: white !important;
     
     &:hover {
-        background-color: #b91c1c !important;
-        border-color: #b91c1c !important;
+        background-color: #ef4444 !important;
+        border-color: #ef4444 !important;
         transform: translateY(-1px);
         box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4) !important;
+    }
+    
+    &:active,
+    &:focus,
+    &.router-link-active {
+        background-color: #ef4444 !important;
+        border-color: #ef4444 !important;
+        color: white !important;
+        transform: none;
+        box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3) !important;
     }
     
     .dark & {
@@ -757,8 +767,16 @@ export default {
         color: white !important;
         
         &:hover {
-            background-color: #b91c1c !important;
-            border-color: #b91c1c !important;
+            background-color: #ef4444 !important;
+            border-color: #ef4444 !important;
+        }
+        
+        &:active,
+        &:focus,
+        &.router-link-active {
+            background-color: #ef4444 !important;
+            border-color: #ef4444 !important;
+            color: white !important;
         }
     }
 }

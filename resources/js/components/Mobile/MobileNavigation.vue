@@ -117,6 +117,13 @@
                     icon="cloud"
                     :is-hover-disabled="true"
                 />
+                <Option
+                    @click.native="goToRoute('DangerZone')"
+                    title="Zona Perigosa"
+                    icon="trash-2"
+                    :is-hover-disabled="true"
+                    class="danger-zone-option"
+                />
             </OptionGroup>
 
             <!--Submenu: Admin settings-->
@@ -727,5 +734,28 @@ export default {
     pointer-events: none;
     opacity: 0.5;
     transition: opacity 0.3s ease;
+}
+
+// Danger zone styling
+.danger-zone-option {
+    border: 2px solid #dc2626 !important;
+    border-radius: 8px !important;
+    background-color: rgba(220, 38, 38, 0.1) !important;
+    margin: 4px !important;
+    
+    &:hover {
+        background-color: rgba(220, 38, 38, 0.2) !important;
+        border-color: #b91c1c !important;
+    }
+    
+    .dark & {
+        background-color: rgba(220, 38, 38, 0.15) !important;
+        border-color: #dc2626 !important;
+        
+        &:hover {
+            background-color: rgba(220, 38, 38, 0.25) !important;
+            border-color: #ef4444 !important;
+        }
+    }
 }
 </style>

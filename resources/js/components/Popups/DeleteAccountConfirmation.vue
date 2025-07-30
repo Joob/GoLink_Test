@@ -102,9 +102,25 @@ export default {
         username() {
             const user = this.user?.data?.attributes;
             const settings = this.user?.data?.relationships?.settings?.data?.attributes;
-            // Use the name from settings (first_name + last_name) or fallback to email
-            const name = settings?.name || user?.email?.split('@')[0] || user?.email || 'username';
-            return name;
+            
+            // Match backend logic: use settings.name (first_name + last_name) or fallback to email
+            let name;
+            if (settings && settings.first_name && settings.last_name) {
+                name = settings.first_name + ' ' + settings.last_name;
+            } else if (settings && settings.name) {
+                name = settings.name;
+            } else {
+                name = user?.email;
+            }
+            
+            // Debug logging
+            console.log('[DeleteAccount] Username debug:', {
+                settings: settings,
+                computed_name: name,
+                fallback_email: user?.email
+            });
+            
+            return name || user?.email || 'username';
         },
         isSubmitButtonDisabled() {
             // Só habilita se o valor for exatamente igual ao username (case-insensitive, sem espaços extras)

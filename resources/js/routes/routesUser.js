@@ -43,6 +43,15 @@ const routesUser = [
                     title: 'billing',
                 },
             },
+            {
+                name: 'DangerZone',
+                path: '/user/settings/danger-zone',
+                component: () => import(/* webpackChunkName: "chunks/danger-zone" */ '../views/User/DangerZone'),
+                meta: {
+                    requiresAuth: true,
+                    title: 'danger_zone',
+                },
+            },
         ],
     },
 ]

@@ -23,9 +23,25 @@ class DeleteAccountController extends Controller
 
         // 1. Verificar nome - usar o nome das settings ou email como fallback
         $userName = $user->settings->name ?? $user->email;
+        
+        // Debug: Log what we're comparing
+        \Log::info('Delete Account Debug', [
+            'user_id' => $user->id,
+            'expected_username' => $userName,
+            'received_username' => $request->username_confirmation,
+            'settings_name' => $user->settings ? $user->settings->name : null,
+            'settings_first_name' => $user->settings ? $user->settings->first_name : null,
+            'settings_last_name' => $user->settings ? $user->settings->last_name : null,
+            'user_email' => $user->email
+        ]);
+        
         if ($request->username_confirmation !== $userName) {
             return response()->json([
-                'message' => 'Nome de utilizador não coincide'
+                'message' => 'Nome de utilizador não coincide',
+                'debug' => [
+                    'expected' => $userName,
+                    'received' => $request->username_confirmation
+                ]
             ], 422);
         }
 

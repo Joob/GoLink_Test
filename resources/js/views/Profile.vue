@@ -160,6 +160,13 @@ export default {
                 })
             }
 
+            // Add danger zone
+            list.push({
+                title: 'Zona Perigosa',
+                route: 'DangerZone',
+                isDanger: true
+            })
+
             return list
         },
     },

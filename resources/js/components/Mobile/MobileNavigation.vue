@@ -738,23 +738,27 @@ export default {
 
 // Danger zone styling
 .danger-zone-option {
+    background-color: #dc2626 !important;
     border: 2px solid #dc2626 !important;
     border-radius: 8px !important;
-    background-color: rgba(220, 38, 38, 0.1) !important;
     margin: 4px !important;
+    color: white !important;
     
     &:hover {
-        background-color: rgba(220, 38, 38, 0.2) !important;
+        background-color: #b91c1c !important;
         border-color: #b91c1c !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4) !important;
     }
     
     .dark & {
-        background-color: rgba(220, 38, 38, 0.15) !important;
+        background-color: #dc2626 !important;
         border-color: #dc2626 !important;
+        color: white !important;
         
         &:hover {
-            background-color: rgba(220, 38, 38, 0.25) !important;
-            border-color: #ef4444 !important;
+            background-color: #b91c1c !important;
+            border-color: #b91c1c !important;
         }
     }
 }

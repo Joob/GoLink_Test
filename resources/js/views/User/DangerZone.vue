@@ -96,12 +96,30 @@ export default {
     &:hover {
         background-color: #b91c1c !important;
         border-color: #b91c1c !important;
+        color: white !important;
         transform: translateY(-1px);
         box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4) !important;
     }
     
     &:active {
         transform: translateY(0);
+        color: white !important;
+    }
+    
+    .dark & {
+        background-color: #dc2626 !important;
+        border-color: #dc2626 !important;
+        color: white !important;
+        
+        &:hover {
+            background-color: #b91c1c !important;
+            border-color: #b91c1c !important;
+            color: white !important;
+        }
+        
+        &:active {
+            color: white !important;
+        }
     }
 }
 </style>

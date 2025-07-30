@@ -64,10 +64,23 @@ class DeleteAccountController extends Controller
             app()->handle($requestTrash);
 
             // 4. Apagar o registro do usuário e associações
-            $user->shares()->delete();
-            $user->teamInvitations()->delete();
-            $user->tokens()->delete();
-            $user->settings()->delete();
+            // Verificar se as relações existem antes de tentar deletar
+            if ($user->shares()->exists()) {
+                $user->shares()->delete();
+            }
+            
+            if ($user->teamInvitations()->exists()) {
+                $user->teamInvitations()->delete();
+            }
+            
+            if (method_exists($user, 'tokens') && $user->tokens()->exists()) {
+                $user->tokens()->delete();
+            }
+            
+            if ($user->settings()->exists()) {
+                $user->settings()->delete();
+            }
+            
             $user->delete();
 
             DB::commit();

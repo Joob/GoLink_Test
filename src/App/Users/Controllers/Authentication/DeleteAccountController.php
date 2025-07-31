@@ -260,13 +260,16 @@ class DeleteAccountController extends Controller
             
             // Send confirmation email after successful deletion
             try {
-                Mail::to($userEmail)->send(new AccountDeletionConfirmationMail(
+                \Log::info('Attempting to send account deletion confirmation email to: ' . $userEmail);
+                // Use sendNow() to force immediate sending and bypass any queue configuration
+                Mail::to($userEmail)->sendNow(new AccountDeletionConfirmationMail(
                     'Conta Eliminada',
                     'Agradecemos a sua utilização até à data de hoje, ficamos à espera que voltes muito brevemente, Obrigado Equipa'
                 ));
-                \Log::info('Account deletion confirmation email sent to: ' . $userEmail);
+                \Log::info('Account deletion confirmation email sent successfully to: ' . $userEmail);
             } catch (\Exception $e) {
-                \Log::error('Failed to send account deletion confirmation email: ' . $e->getMessage());
+                \Log::error('Failed to send account deletion confirmation email to ' . $userEmail . ': ' . $e->getMessage());
+                \Log::error('Email error stack trace: ' . $e->getTraceAsString());
                 // Don't fail the deletion process if email fails
             }
             

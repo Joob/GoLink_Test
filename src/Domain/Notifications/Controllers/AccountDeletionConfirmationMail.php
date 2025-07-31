@@ -1,13 +1,12 @@
 <?php
 namespace Domain\Notifications\Controllers;
 
-use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 
 class AccountDeletionConfirmationMail extends Mailable
 {
-    use Queueable, SerializesModels;
+    use SerializesModels;
 
     public $data;
 
